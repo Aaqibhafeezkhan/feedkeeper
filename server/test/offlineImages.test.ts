@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import { test } from "node:test";
 
@@ -23,6 +26,8 @@ test("offline copies point at article images served through this server", async 
   process.env.DATABASE_PATH = ":memory:";
   process.env.SESSION_SECRET = "test-session-secret-at-least-32-characters";
   process.env.ALLOW_PRIVATE_FEEDS = "true";
+  const cacheDir = mkdtempSync(join(tmpdir(), "feedkeeper-offline-cache-test-"));
+  process.env.IMAGE_CACHE_PATH = cacheDir;
   const { db, runMigrations } = await import("../src/db/index.js");
   const repo = await import("../src/feeds/repository.js");
   const { subscribeToFeed } = await import("../src/feeds/service.js");
@@ -60,6 +65,8 @@ test("offline copies point at article images served through this server", async 
     const archived = { ...stored, content_html: `<img src="${origin}/api/archive/images/7">`, image_url: null };
     assert.equal(archive.withProxiedImages([archived], origin)[0].content_html, archived.content_html);
   } finally {
+    await archive.stopImageCache();
+    rmSync(cacheDir, { recursive: true, force: true });
     server.close();
   }
 });

@@ -1,28 +1,76 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, unlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { link, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { config } from "../config.js";
 import { db } from "../db/index.js";
 import { fetchImage } from "./fetcher.js";
 import { loadFullText } from "./fullText.js";
 import { canAccessItem, findItemById, findItemForUser } from "./repository.js";
 import { decodeEntities } from "./text.js";
+import { ImageCache, ImageCacheBusyError, type CachedImage } from "./imageCache.js";
+import { detectImageType } from "./imageTypes.js";
+export { detectImageType } from "./imageTypes.js";
 
 const MAX_IMAGES_PER_ARTICLE = 30;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const FILE_NAME = /^\d+-[0-9a-f]{16}\.(jpg|png|webp|gif|avif)$/;
 
-type ImageType = { mime: string; ext: string };
+let imageCache: ImageCache | undefined;
+let imageCacheTimer: NodeJS.Timeout | undefined;
+let imageCacheStopping = false;
+let imageCachePruning = false;
+const archiveWrites = new Set<string>();
 
-/** Identify raster images by signature; SVG is never archived because it can carry scripts. */
-export function detectImageType(data: Uint8Array): ImageType | null {
-  const ascii = (start: number, end: number) => String.fromCharCode(...data.subarray(start, end));
-  if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return { mime: "image/jpeg", ext: "jpg" };
-  if (data.length >= 8 && ascii(1, 4) === "PNG" && data[0] === 0x89) return { mime: "image/png", ext: "png" };
-  if (data.length >= 12 && ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return { mime: "image/webp", ext: "webp" };
-  if (data.length >= 6 && (ascii(0, 6) === "GIF87a" || ascii(0, 6) === "GIF89a")) return { mime: "image/gif", ext: "gif" };
-  if (data.length >= 12 && ascii(4, 8) === "ftyp" && ["avif", "avis"].includes(ascii(8, 12))) return { mime: "image/avif", ext: "avif" };
-  return null;
+async function storeArchivedImage(destination: string, image: CachedImage): Promise<void> {
+  const temporary = `${destination}.tmp`;
+  archiveWrites.add(temporary);
+  try {
+    await unlink(temporary).catch((error: NodeJS.ErrnoException) => { if (error.code !== "ENOENT") throw error; });
+    if (image.path) await link(image.path, temporary).catch(() => writeFile(temporary, image.buffer, { mode: 0o600 }));
+    else await writeFile(temporary, image.buffer, { mode: 0o600 });
+    await rename(temporary, destination);
+  } finally { archiveWrites.delete(temporary); }
+}
+
+function sharedImages(): ImageCache {
+  if (!imageCache) {
+    imageCache = new ImageCache(config.imageCache);
+    imageCacheTimer = setInterval(() => {
+      if (imageCachePruning) return;
+      imageCachePruning = true;
+      void imageCache!.prune().catch(() => undefined).then(() => {
+        console.log(JSON.stringify({ event: "image_cache", ...imageCache!.metrics() }));
+      }).finally(() => { imageCachePruning = false; });
+    }, 60_000);
+    imageCacheTimer.unref();
+  }
+  return imageCache;
+}
+
+export async function stopImageCache(): Promise<void> {
+  imageCacheStopping = true;
+  if (imageCacheTimer) clearInterval(imageCacheTimer);
+  await imageCache?.close();
+}
+
+function sharedImage(item: { id: number; feed_id: number }, url: string): Promise<CachedImage | "unsupported"> {
+  if (imageCacheStopping) return Promise.reject(new ImageCacheBusyError());
+  const archived = db.prepare<[number, string], { file_name: string }>(
+    "SELECT file_name FROM archived_images WHERE item_id = ? AND source_url = ?",
+  ).get(item.id, url);
+  // An old saved snapshot must not replace a newer article's image at the same URL.
+  const scope = archived ? `${item.feed_id}:archive:${item.id}` : item.feed_id;
+  return sharedImages().get(scope, url, async (signal) => {
+    if (archived) {
+      const path = join(archiveDir(), archived.file_name);
+      try {
+        const buffer = await readFile(path);
+        if (buffer.length <= MAX_IMAGE_BYTES && detectImageType(buffer)) return { buffer, path };
+      } catch { /* Recover a missing archived file from its source. */ }
+    }
+    return fetchImage(url, MAX_IMAGE_BYTES, signal);
+  });
 }
 
 function archiveDir(): string {
@@ -104,20 +152,31 @@ export async function archiveItem(itemId: number): Promise<void> {
 
   mkdirSync(archiveDir(), { recursive: true });
   for (const url of urls) {
+    if (imageCacheStopping) return;
     if (known.has(url)) continue;
     try {
-      const { buffer } = await fetchImage(url, MAX_IMAGE_BYTES);
+      const image = await sharedImage(item, url);
+      if (image === "unsupported") continue;
+      const { buffer } = image;
       const type = detectImageType(buffer);
       if (!type) continue;
       const fileName = `${itemId}-${createHash("sha256").update(url).digest("hex").slice(0, 16)}.${type.ext}`;
-      writeFileSync(join(archiveDir(), fileName), buffer);
+      const destination = join(archiveDir(), fileName);
+      await storeArchivedImage(destination, image);
+      // The last bookmark or article may have disappeared while the image was loading.
+      if (!hasBookmark(itemId) || !findItemById(itemId)) {
+        unlinkSync(destination);
+        continue;
+      }
       insert.run(itemId, url, fileName, type.mime, buffer.length);
-    } catch {
+    } catch (error) {
+      // Leave the durable bookmark pending so startup can finish it later.
+      if (error instanceof ImageCacheBusyError || imageCacheStopping) return;
       // A missing image should not stop the rest of the article from being archived.
     }
   }
 
-  db.prepare("UPDATE items SET archived_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?").run(itemId);
+  if (!imageCacheStopping) db.prepare("UPDATE items SET archived_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?").run(itemId);
 }
 
 const queue: number[] = [];
@@ -178,6 +237,10 @@ export function pruneArchive(): number {
   }
   const kept = new Set(db.prepare<[], { file_name: string }>("SELECT file_name FROM archived_images").all().map((row) => row.file_name));
   for (const file of files) {
+    if (file.endsWith(".tmp") && FILE_NAME.test(file.slice(0, -4)) && !archiveWrites.has(join(archiveDir(), file))) {
+      try { unlinkSync(join(archiveDir(), file)); removed++; } catch { /* Already gone. */ }
+      continue;
+    }
     if (!FILE_NAME.test(file) || kept.has(file)) continue;
     try {
       unlinkSync(join(archiveDir(), file));
@@ -261,7 +324,9 @@ export function withProxiedImages<T extends ImageSource & { id: number }>(items:
 export async function fetchItemImage(userId: number, itemId: number, imageUrl: string): Promise<{ buffer: Buffer; mime: string } | "forbidden" | "unsupported"> {
   const item = findItemForUser(userId, itemId);
   if (!item || !itemImageUrls(item).includes(imageUrl)) return "forbidden";
-  const { buffer } = await fetchImage(imageUrl, MAX_IMAGE_BYTES);
-  const type = detectImageType(buffer);
-  return type ? { buffer, mime: type.mime } : "unsupported";
+  const image = await sharedImage(item, imageUrl);
+  // Access or the article's image list can change while a shared download is running.
+  const current = findItemForUser(userId, itemId);
+  if (!current || !itemImageUrls(current).includes(imageUrl)) return "forbidden";
+  return image;
 }

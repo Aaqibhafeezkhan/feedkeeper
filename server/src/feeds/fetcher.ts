@@ -18,12 +18,25 @@ export interface FetchedFeed {
 }
 
 interface Download {
+  cacheTtlMs?: number;
   notModified: boolean;
   buffer: Buffer;
   contentType?: string;
   etag?: string;
   lastModified?: string;
   finalUrl: string;
+}
+
+function cacheLifetime(headers: { get(name: string): string | null }): number | undefined {
+  const control = headers.get("cache-control") ?? "";
+  if (/(?:^|,)\s*(?:no-store|no-cache|private)\b/i.test(control)) return 0;
+  const maxAge = /(?:^|,)\s*max-age\s*=\s*"?(\d+)"?/i.exec(control);
+  const age = Number(headers.get("age") ?? 0);
+  const date = Date.parse(headers.get("date") ?? "");
+  const elapsed = Math.max(0, Number.isFinite(age) ? age * 1_000 : 0, Number.isFinite(date) ? Date.now() - date : 0);
+  if (maxAge) return Math.max(0, Number(maxAge[1]) * 1_000 - elapsed);
+  const expires = Date.parse(headers.get("expires") ?? "");
+  return Number.isFinite(expires) ? Math.max(0, expires - Date.now()) : undefined;
 }
 
 export class FeedHttpError extends Error {
@@ -134,6 +147,7 @@ async function downloadPublic(
           chunks.push(value);
         }
         return {
+          cacheTtlMs: cacheLifetime(response.headers),
           notModified: false, buffer: Buffer.concat(chunks, total),
           contentType: response.headers.get("content-type") ?? undefined,
           etag: response.headers.get("etag") ?? undefined,
@@ -171,9 +185,9 @@ export async function fetchFeed(
 }
 
 /** Downloads an image for the archive; the caller checks the file signature. */
-export async function fetchImage(url: string, maxBytes: number, signal?: AbortSignal): Promise<{ buffer: Buffer; finalUrl: string }> {
+export async function fetchImage(url: string, maxBytes: number, signal?: AbortSignal): Promise<{ buffer: Buffer; finalUrl: string; cacheTtlMs?: number }> {
   const download = await downloadPublic(url, { accept: "image/avif,image/webp,image/png,image/jpeg,image/gif;q=0.9,*/*;q=0.5", maxBytes, signal });
-  return { buffer: download.buffer, finalUrl: download.finalUrl };
+  return { buffer: download.buffer, finalUrl: download.finalUrl, cacheTtlMs: download.cacheTtlMs };
 }
 
 /**

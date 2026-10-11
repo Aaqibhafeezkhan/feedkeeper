@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { FULL_TEXT_STATUS } from "../items.js";
 import { findArchivedImage, fetchItemImage, withArchivedImages, withProxiedImages } from "../../feeds/archive.js";
+import { ImageCacheBusyError } from "../../feeds/imageCache.js";
 import { discoverFeeds } from "../../feeds/discovery.js";
 import { loadFullText } from "../../feeds/fullText.js";
 import { generateOpml, importOpmlFeeds } from "../../feeds/opml.js";
@@ -672,7 +673,12 @@ resourcesRouter.get("/items/:id/image", imageLimiter, async (req, res) => {
     if (image === "unsupported") return void res.status(415).json({ error: "unsupported_image" });
     res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
     res.type(image.mime).send(image.buffer);
-  } catch {
+  } catch (error) {
+    if (error instanceof ImageCacheBusyError) {
+      res.setHeader("Retry-After", "1");
+      res.status(503).json({ error: "image_busy" });
+      return;
+    }
     res.status(502).json({ error: "image_unavailable" });
   }
 });

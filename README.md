@@ -273,6 +273,18 @@ By default, FeedKeeper checks up to four feeds at once, with at most two request
 
 Run **one application process per database**. On hosts with little memory, start with `POLL_CONCURRENCY=2` and `POLL_HOST_CONCURRENCY=1`. Allow 45 seconds for shutdown; the supplied Docker Compose file already does this. See [Feed polling](docs/feed-polling.md) for the settings, logs and upgrade guidance.
 
+### Article images
+
+The image proxy shares downloads and cached images between subscribers of the same feed. This covers native clients requesting proxy images and the web app's offline copies; images loaded directly from a publisher bypass this cache. Every request still checks access to the article and its image. Different feeds and different source URLs, including query parameters, have separate cache entries.
+
+The disposable cache defaults to **256 MiB, 2,000 images and six hours**, with four active jobs and at most 32 waiting jobs. Full queues return `503 image_busy` with `Retry-After: 1`. Downloads retain the existing HTTP limits, size limit, SSRF checks and redirect rules; `POLL_REQUEST_TIMEOUT_MS` also bounds time spent waiting in the image queue. Missing images (HTTP 404/410) and unsupported formats are remembered for 60 seconds; other failures are not cached. Source cache directives can shorten or prevent disk caching.
+
+See `IMAGE_CACHE_*` in [.env.example](.env.example) to change these limits. `IMAGE_CACHE_PATH` defaults to `image-cache` next to the database. Use one process per cache directory and keep it separate from `ARCHIVE_PATH`. Expired and least recently used entries are removed automatically. The cache stores hashed keys rather than source URLs, uses asynchronous file operations, and does not write to SQLite on cache hits. Once used, it logs aggregate `image_cache` counters every minute: hits, misses, shared work, negative hits, errors, overloads, evictions, bytes, entries, active and waiting jobs.
+
+Saved articles retain their permanent archives. Cache and archive files share disk space through hard links when they are on the same filesystem; otherwise saving an article copies its image. Evicting the cache never deletes a saved copy. Existing archives can refill the cache without contacting the source; these snapshots stay tied to their article so an old saved image cannot replace a newer one at the same source URL. Back up the database and archive as before; the disposable cache needs no backup.
+
+No database migration is needed. To roll back, stop the application and return to the previous version. Alternatively, set `IMAGE_CACHE_MAX_BYTES=0` and restart to disable disk caching; `IMAGE_CACHE_NEGATIVE_TTL_SECONDS=0` also disables remembered failures. Existing disposable files can be removed while the application is stopped. Keep the archive.
+
 ## Extending
 
 Operators and products built on FeedKeeper can add settings sections, footer links and a custom sign-in to the web app through `window.feedkeeperExtensions`, without patching the code. See [Extending the web app](docs/extending-the-web-app.md).

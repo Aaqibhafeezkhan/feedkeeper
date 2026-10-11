@@ -209,6 +209,8 @@ export function startPollingScheduler(): void {
 export async function stopPollingScheduler(): Promise<void> {
   if (scheduler) clearInterval(scheduler);
   scheduler = undefined;
+  const { stopImageCache } = await import("./archive.js");
+  await stopImageCache();
   await Promise.all([queue?.stop(), stopPushOutbox()]);
   feedRequests.stop();
 }

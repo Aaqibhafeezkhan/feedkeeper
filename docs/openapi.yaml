@@ -489,6 +489,12 @@ paths:
         "200": { description: A raster image, content: { "image/*": { schema: { type: string, format: binary } } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "415": { description: Not a supported image }
+        "502": { description: Image source unavailable or download timed out }
+        "503":
+          description: Image queue full (`image_busy`); retry after a short pause
+          headers:
+            Retry-After:
+              schema: { type: integer, example: 1 }
   /archive/images/{imageId}:
     get:
       tags: [Images]

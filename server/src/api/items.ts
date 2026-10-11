@@ -13,6 +13,7 @@ import {
 } from "../feeds/repository.js";
 import { loadFullText, type FullTextError } from "../feeds/fullText.js";
 import { fetchItemImage, pruneArchive, scheduleArchive, withArchivedImages, withProxiedImages } from "../feeds/archive.js";
+import { ImageCacheBusyError } from "../feeds/imageCache.js";
 
 export const FULL_TEXT_STATUS: Record<FullTextError, number> = {
   capability_not_available: 403, paywall: 422, bot_blocked: 422, timeout: 504, partial: 422,
@@ -79,7 +80,12 @@ itemsRouter.get("/:itemId/image", imageLimiter, async (req, res) => {
       res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
       res.type(image.mime).send(image.buffer);
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof ImageCacheBusyError) {
+      res.setHeader("Retry-After", "1");
+      res.status(503).json({ error: "image_busy" });
+      return;
+    }
     res.status(502).json({ error: "image_unavailable" });
   }
 });

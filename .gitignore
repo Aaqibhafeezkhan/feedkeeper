@@ -10,6 +10,7 @@ server/dist/
 *.sqlite
 *.sqlite3
 data/
+image-cache/
 
 # Environment
 .env
