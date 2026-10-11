@@ -4,6 +4,15 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-11
+
+### Changed
+- Article lists select a page before loading full article content, reducing database work on larger libraries.
+- Article images share a bounded disk cache and concurrent downloads within each feed. Missing images are cached briefly; saved articles reuse cached files while keeping their permanent copies.
+
+### Upgrade notes
+- No database migration or additional service is needed. The image cache defaults to 256 MiB next to the database; keep it separate from the archive and use one process per cache directory. See [Article images](README.md#article-images) for settings and rollback guidance.
+
 ## [0.20.0] - 2026-10-09
 
 ### Changed
@@ -291,7 +300,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/visualfusion/feedkeeper/compare/v0.20.0...v0.21.0
+[0.20.0]: https://github.com/visualfusion/feedkeeper/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/visualfusion/feedkeeper/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/visualfusion/feedkeeper/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/visualfusion/feedkeeper/compare/v0.16.2...v0.17.0
