@@ -413,10 +413,23 @@ export function listItemsForUser(
   const limit = Math.min(opts.limit ?? 50, 200);
   const offset = Math.max(opts.offset ?? 0, 0);
   params.push(limit, offset);
+  const orderBy = opts.sortByAdded ? "i.created_at DESC, i.id DESC" : opts.bookmarkedOnly ? "b.created_at DESC, i.id DESC" : "i.published_at DESC, i.created_at DESC, i.id DESC";
 
+  // Page IDs before loading HTML. User/feed and user/item keys make these joins unique.
+  // Keep selection and loading in one statement so they share the same read snapshot.
   return db
     .prepare(
-      `SELECT DISTINCT i.*,
+      `WITH page AS (
+         SELECT i.id
+         FROM items i
+         LEFT JOIN subscriptions s ON s.feed_id = i.feed_id AND s.user_id = ?
+         LEFT JOIN item_reads r ON r.item_id = i.id AND r.user_id = ?
+         LEFT JOIN item_bookmarks b ON b.item_id = i.id AND b.user_id = ?
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY ${orderBy}
+         LIMIT ? OFFSET ?
+       )
+       SELECT i.*,
               COALESCE(NULLIF(TRIM(s.label), ''), NULLIF(TRIM(f.title), ''), f.url) AS feed_title,
               f.site_url AS feed_site_url,
               f.url AS feed_url,
@@ -425,16 +438,15 @@ export function listItemsForUser(
               (r.item_id IS NOT NULL) AS read,
               (b.item_id IS NOT NULL) AS bookmarked,
               b.created_at AS bookmarked_at
-       FROM items i
+       FROM page
+       JOIN items i ON i.id = page.id
        JOIN feeds f ON f.id = i.feed_id
        LEFT JOIN subscriptions s ON s.feed_id = i.feed_id AND s.user_id = ?
        LEFT JOIN item_reads r ON r.item_id = i.id AND r.user_id = ?
        LEFT JOIN item_bookmarks b ON b.item_id = i.id AND b.user_id = ?
-       WHERE ${conditions.join(" AND ")}
-       ORDER BY ${opts.sortByAdded ? "i.created_at DESC, i.id DESC" : opts.bookmarkedOnly ? "b.created_at DESC, i.id DESC" : "i.published_at DESC, i.created_at DESC, i.id DESC"}
-       LIMIT ? OFFSET ?`,
+       ORDER BY ${orderBy}`,
     )
-    .all(userId, userId, userId, ...params) as (Item & {
+    .all(userId, userId, userId, ...params, userId, userId, userId) as (Item & {
       read: boolean;
       bookmarked: boolean;
       feed_title: string | null;
