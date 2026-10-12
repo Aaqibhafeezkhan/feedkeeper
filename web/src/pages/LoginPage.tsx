@@ -24,6 +24,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showGithubLink, setShowGithubLink] = useState(true);
   const [githubUrl, setGithubUrl] = useState("https://github.com/visualfusion/feedkeeper");
+  const [loginSubtitle, setLoginSubtitle] = useState<string | null>(null);
   const hostForm = resolveLoginForm(useExtensions());
   const hostMount = hostForm?.mount;
   const passkeyFinished = useEffectEvent(async () => { await finished(); setSubmitting(false); });
@@ -54,6 +55,7 @@ export function LoginPage() {
         if (cfg) {
           setShowGithubLink(cfg.showGithubLink);
           if (cfg.githubUrl) setGithubUrl(cfg.githubUrl);
+          if (cfg.loginSubtitle) setLoginSubtitle(cfg.loginSubtitle);
         }
       })
       .catch(() => {
@@ -94,7 +96,7 @@ export function LoginPage() {
             <BrandLockup size={44} />
           </h1>
           <p className="text-xs mt-1" style={{ color: "var(--c-text-muted)" }}>
-            {t("login.subtitle")}
+            {loginSubtitle ?? t("login.subtitle")}
           </p>
         </div>
         {hostForm ? (
@@ -114,7 +116,6 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onFocus={() => { if (!submitting) void passkey.current?.start(); }}
-                onClick={() => { if (!submitting) void passkey.current?.start(); }}
               />
             </div>
             <div>

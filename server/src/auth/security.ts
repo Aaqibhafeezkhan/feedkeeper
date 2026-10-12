@@ -51,7 +51,7 @@ export function readSecurityChallenge(id: unknown, purpose: string, binding: str
   if (typeof id !== "string" || !/^[\w-]{43}$/.test(id)) return null;
   return db.transaction(() => {
     const row = db.prepare<[string], Challenge>("SELECT * FROM security_challenges WHERE id_hash = ?").get(hash(id));
-    if (!row || row.purpose !== purpose || row.binding !== binding || row.expires_at <= Date.now() || row.attempts >= 5 || (row.user_id && row.version !== securityVersion(row.user_id))) return null;
+    if (!row || row.purpose !== purpose || row.binding !== binding || row.expires_at <= Date.now() || row.attempts >= 15 || (row.user_id && row.version !== securityVersion(row.user_id))) return null;
     if (consume) db.prepare("DELETE FROM security_challenges WHERE id_hash = ?").run(hash(id));
     else db.prepare("UPDATE security_challenges SET attempts = attempts + 1 WHERE id_hash = ?").run(hash(id));
     return row;

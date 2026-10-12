@@ -28,7 +28,7 @@ export function createSecurityRouter(options: SecurityRouteOptions): Router {
   const binding = (req: Request) => securityBinding(req, `${channel}-login`);
   const managementBinding = (req: Request) => securityBinding(req, `${channel}-management`);
   const invalid = (res: Response) => { res.status(400).json({ error: "invalid_or_expired_code" }); };
-  const limiter = rateLimit({ windowMs: 15 * 60_000, limit: 40, standardHeaders: true, legacyHeaders: false, message: { error: "too_many_requests" } });
+  const limiter = rateLimit({ windowMs: 5 * 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: { error: "too_many_requests" } });
   router.use((_req, res, next) => { res.setHeader("Cache-Control", "private, no-store"); next(); });
   router.use((req, res, next) => {
     if (req.method !== "GET" && (req.headers["sec-fetch-site"] === "cross-site" || (req.headers.origin && req.headers.origin !== origin))) {

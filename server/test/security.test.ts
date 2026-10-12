@@ -22,7 +22,7 @@ test("account security protects login, passkey enrollment and factor recovery", 
   const handle = security.issueSecurityChallenge("mfa", isolated.id, "native-login", {});
   assert.equal(security.readSecurityChallenge(handle, "mfa", "web-login"), null);
   assert.equal(security.readSecurityChallenge(handle, "reauth", "native-login"), null);
-  for (let attempt = 0; attempt < 5; attempt++) assert.ok(security.readSecurityChallenge(handle, "mfa", "native-login"));
+  for (let attempt = 0; attempt < 15; attempt++) assert.ok(security.readSecurityChallenge(handle, "mfa", "native-login"));
   assert.equal(security.readSecurityChallenge(handle, "mfa", "native-login"), null);
   const expired = security.issueSecurityChallenge("mfa", isolated.id, "native-login", {}, -1);
   assert.equal(security.readSecurityChallenge(expired, "mfa", "native-login"), null);

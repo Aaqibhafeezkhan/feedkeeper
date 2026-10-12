@@ -67,6 +67,7 @@ export function isTransient(error: unknown): boolean {
 export interface PublicConfig {
   showGithubLink: boolean;
   githubUrl: string;
+  loginSubtitle?: string;
 }
 
 export interface DiscoveredFeed {
