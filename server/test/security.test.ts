@@ -59,7 +59,8 @@ test("account security protects login, passkey enrollment and factor recovery", 
   assert.equal(setup.status, 200);
   assert.match(setup.body.uri, /^otpauth:\/\/totp\//);
   const totp = security.totpFor(setup.body.secret);
-  const confirmed = await call("/security/totp/confirm", { challengeId: setup.body.challengeId, code: totp.generate() });
+  const setupCode = totp.generate();
+  const confirmed = await call("/security/totp/confirm", { challengeId: setup.body.challengeId, code: setupCode });
   assert.equal(confirmed.status, 200);
   const codes: string[] = confirmed.body.recoveryCodes;
   assert.equal(codes.length, 10);
@@ -70,7 +71,7 @@ test("account security protects login, passkey enrollment and factor recovery", 
   const mfa = await login();
   assert.equal(mfa.status, 403);
   assert.equal(mfa.body.error, "mfa_required");
-  assert.equal((await call("/security/mfa", { challengeId: mfa.body.challengeId, code: totp.generate() })).status, 400, "the setup code cannot be replayed");
+  assert.equal((await call("/security/mfa", { challengeId: mfa.body.challengeId, code: setupCode })).status, 400, "the setup code cannot be replayed");
   assert.equal((await call("/security/mfa", { challengeId: mfa.body.challengeId, code: codes[0] })).status, 200);
   assert.equal((await call("/security/mfa", { challengeId: mfa.body.challengeId, code: codes[1] })).status, 400, "a login challenge works once");
   const again = await login();

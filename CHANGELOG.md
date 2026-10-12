@@ -4,6 +4,11 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.21.2] - 2026-10-12
+
+### Fixed
+- The authenticator replay regression test now resubmits the exact setup code instead of generating a new valid code when the 30-second period changes. Production authentication is unchanged; this release includes the passkey autofill improvements from 0.21.1.
+
 ## [0.21.1] - 2026-10-12
 
 ### Changed
