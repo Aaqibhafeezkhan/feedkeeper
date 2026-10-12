@@ -4,50 +4,29 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
-## [0.21.6] - 2026-10-12
-
-### Fixed
-- Onboarding on articles page: display the welcome onboarding experience when an account has 0 feeds regardless of route query filters, and automatically strip zombie `?folder=` / `?feed=` parameters.
-- Replaced all emojis across the onboarding flow and starter packs with crisp inline SVG vector icons.
-- Updated newspaper view toggle button icon in the articles page top bar to match the new newspaper vector icon.
+## [0.22.0] - 2026-10-12
 
 ### Added
-- Structured onboarding welcome experience with dedicated cards for theme discovery starter packs, single website subscription, and OPML import.
-
-## [0.21.5] - 2026-10-12
-
-### Fixed
-- Reauth modal dialog is now mounted directly to the document body via a React portal, ensuring it is centered across the entire viewport and covers the full page with its backdrop instead of being constrained to the settings content column.
-- Security status and alert feedback messages are now formatted inside structured banners with proper card padding, theme-aware background/border styling, and status icons.
-- Relaxed rate limiting and security challenge attempt budgets (up to 15 attempts and 5-minute rate limit window) to prevent accidental lockouts for legitimate users.
-- Supported custom `loginSubtitle` in public configuration and removed redundant click handler on login email field.
-
-### Fixed
-- Security settings now use an on-demand modal confirmation dialog for all protected actions (passkey registration, passkey removal, authenticator setup/disable, and recovery code generation), eliminating unexpected submission errors from empty identity fields.
-- Accounts with existing passkeys can confirm protected security actions directly via passkey biometric/security key prompt without entering their password.
-- Cancelling the confirmation dialog cleanly closes the modal without displaying error messages and preserves pending form input.
-
-### Added
-- Feeds with active notifications now display a visual bell icon directly in the feed list row, visible even when the feed edit details are closed.
-
-### Fixed
-- Security settings now confirm successful passkey changes and collapse the identity fields afterwards. A later change still requires a fresh one-use proof; opening the confirmation does not submit an empty password. Saved changes remain clearly reported when reloading the overview fails.
-- Passkey names and removal controls stay aligned, including long names on small screens. The labelled add-passkey form uses the available width and stacks on phones.
-- Authenticator setup is shown as pending until the confirmation code is accepted. All feedback is available in German, English and Japanese.
-
-## [0.21.2] - 2026-10-12
-
-### Fixed
-- The authenticator replay regression test now resubmits the exact setup code instead of generating a new valid code when the 30-second period changes. Production authentication is unchanged; this release includes the passkey autofill improvements from 0.21.1.
-
-## [0.21.1] - 2026-10-12
+- Sign in with a passkey directly from the email field using browser autofill. Supporting browsers no longer show a separate passkey button; other WebAuthn browsers retain a text link.
+- On-demand modal reauthentication dialog for protected security actions (passkey registration, passkey removal, authenticator setup/disable, and recovery code generation), allowing confirmation via passkey biometrics without typing a password.
+- Feeds with active notifications display a visual bell icon directly in the feed list row.
+- Structured onboarding welcome experience for accounts without feeds, featuring theme discovery starter packs, single website subscription, and OPML import.
+- Support for custom `loginSubtitle` in public configuration.
 
 ### Changed
-- Sign in with a passkey from the email field using browser autofill. Supporting browsers no longer show a separate passkey button; other WebAuthn browsers retain a text link. Password sign-in and authenticator codes remain available.
-- Pending passkey requests stop on password submission or navigation and renew before their challenges expire.
+- Replaced emojis across the onboarding flow, starter pack categories, and view navigation with crisp inline SVG vector icons.
+- Updated newspaper view toggle button icon in the articles page top bar to match the new newspaper vector icon.
+
+### Fixed
+- Reauth modal dialog is now mounted directly to the document body via a React portal, ensuring it is centered across the entire viewport with a full-screen backdrop.
+- Security status and alert feedback messages are now formatted inside structured banners with proper card padding, theme-aware styling, and status icons.
+- Relaxed rate limiting and security challenge attempt budgets (up to 15 attempts, 5-minute window) to prevent accidental lockouts.
+- Display the welcome onboarding experience on the articles page when an account has 0 feeds regardless of route query filters, and automatically strip zombie `?folder=` / `?feed=` parameters.
+- Passkey names and removal controls stay aligned on small screens; responsive forms stack properly on mobile.
+- Authenticator setup is displayed as pending until the confirmation code is accepted; multilingual feedback in German, English, and Japanese.
 
 ### Upgrade notes
-- No database migration or configuration change is needed. Existing passkeys continue to work on the same HTTPS origin.
+- No database migration or configuration change is needed. Existing passkeys and sessions continue to work seamlessly on the same HTTPS origin.
 
 ## [0.21.0] - 2026-10-11
 
