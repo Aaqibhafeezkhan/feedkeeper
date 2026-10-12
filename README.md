@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/visualfusion/feedkeeper/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/visualfusion/feedkeeper/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=CI" alt="CI" /></a>
+  <a href="https://github.com/visualfusion/feedkeeper/releases"><img src="https://img.shields.io/github/v/release/visualfusion/feedkeeper?style=for-the-badge&logo=github&color=blue" alt="Latest Release" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License: MIT" /></a>
   <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-Streamable_HTTP-8A2BE2?style=for-the-badge" alt="MCP" /></a>
   <a href="#features"><img src="https://img.shields.io/badge/UI-EN_%7C_DE_%7C_JA-informational?style=for-the-badge" alt="Languages" /></a>
@@ -19,6 +20,9 @@ FeedKeeper is an independent RSS and Atom feed manager built for people who want
 Beyond a clean web reader, FeedKeeper includes a native, authenticated **[Model Context Protocol (MCP)](https://modelcontextprotocol.io)** endpoint. This lets MCP clients read, search, bookmark, and organize your feeds over a remote connection. Your subscriptions and reading history stay in your own SQLite database.
 
 It is multi-user by default, with isolated accounts, personal access tokens, and a trilingual interface (English, German, and Japanese).
+
+> [!TIP]
+> **Prefer a managed solution?** If you want a turnkey RSS reader without hosting, maintaining updates, and managing backups yourself, [FeedKeeper Cloud](https://feedkeeper.cloud) provides a fully managed hosted service with managed AI curation and Claude MCP integration.
 
 <p align="center">
   <img src="docs/screenshots/iphone.png" alt="FeedKeeper on iPhone: newspaper view with category filter and tab bar" width="170" />
@@ -84,7 +88,8 @@ Changing `SESSION_SECRET` signs out active browser sessions; feeds and accounts 
 - **Notifications and home screen shortcuts** — optional push notifications for new articles of the feeds you choose (on iPhone and iPad once the app is on the home screen), the number of unread articles of the feeds you choose on the app icon, shortcuts to saved articles and to adding a feed, and sharing a web address from another app straight into the add-feed dialog. Notifications are encrypted end to end and delivered through your browser vendor's push service; the server creates its push keys on first start and keeps them in the database.
 - **Personal profiles** — each account can set its display name and a profile photo.
 - **Online backups** — create verified SQLite backups while the service keeps running.
-- **Passkeys and two-factor authentication** — Sign in without a password, protect password login with an authenticator app, and keep one-time recovery codes. Available on every installation; see [Account security](docs/account-security.md).
+- **Guided onboarding & starter packs** — get started instantly with curated topic starter packs (News, Tech, Design, etc. with crisp vector icons), single website discovery, or OPML import when setting up an empty account.
+- **Passkeys with browser autofill & step-up reauthentication** — sign in effortlessly without a password via WebAuthn browser autofill directly from the email input field. Protect security-sensitive actions (passkey registration, 2FA setup, recovery codes) with modal biometric confirmation without typing a password. Optional TOTP two-factor authentication and one-time recovery codes on every installation; see [Account security](docs/account-security.md).
 - **Hardened security** — SSRF protection against internal network probing, rate limiting on authentication, and hashed API tokens.
 
 ## How it fits together
