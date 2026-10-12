@@ -20,13 +20,18 @@ async function fixture({ failRegistration = false, failRefresh = false, email = 
   let saved = false, totpEnabled = false;
   const requests = [];
   const passkeys = [{ id: "first", name: "iCloud", created_at: "2026-10-12" }];
-  globalThis.navigator.credentials = { create: async () => ({ id: "second", rawId: new Uint8Array([1]).buffer, type: "public-key", response: { attestationObject: new ArrayBuffer(1), clientDataJSON: new ArrayBuffer(1) }, getClientExtensionResults: () => ({}) }) };
+  globalThis.navigator.credentials = {
+    create: async () => ({ id: "second", rawId: new Uint8Array([1]).buffer, type: "public-key", response: { attestationObject: new ArrayBuffer(1), clientDataJSON: new ArrayBuffer(1) }, getClientExtensionResults: () => ({}) }),
+    get: async () => ({ id: "first", rawId: new Uint8Array([1]).buffer, type: "public-key", response: { authenticatorData: new ArrayBuffer(1), clientDataJSON: new ArrayBuffer(1), signature: new ArrayBuffer(1) }, getClientExtensionResults: () => ({}) }),
+  };
   globalThis.fetch = async (url, options = {}) => {
     const path = url.replace("/api/auth/security", "");
     const body = options.body ? JSON.parse(options.body) : undefined;
     requests.push({ path, body, method: options.method });
     if (path === "/") return Response.json(saved && failRefresh ? { error: "refresh_failed" } : { passkeys, passkeysEnabled: true, totpEnabled, recoveryCodesRemaining: 0, emailReauthEnabled: email }, { status: saved && failRefresh ? 503 : 200 });
     if (path === "/reauth" || path === "/reauth/email/confirm") return Response.json({ reauthToken: "one-use-proof" });
+    if (path === "/reauth/passkey/options") return Response.json({ challengeId: "reauth-challenge", publicKey: { challenge: "AAECAw", rpId: "reader.example" } });
+    if (path === "/reauth/passkey/verify") return Response.json({ reauthToken: "passkey-proof" });
     if (path === "/totp/setup") return Response.json({ challengeId: "setup", secret: "TEST-ONLY", uri: "otpauth://totp/Reader?secret=TESTONLY" });
     if (path === "/totp/confirm") { totpEnabled = true; return Response.json({ recoveryCodes: ["test-only-recovery"] }); }
     if (path === "/reauth/email") return new Response(null, { status: 204 });
@@ -60,9 +65,10 @@ async function waitFor(check) {
   assert.fail("The expected security state did not appear");
 }
 async function add() {
-  await fill(field("Aktuelles Passwort"), "test-password");
   await fill(field("Name des Passkeys"), "  Laptop  ");
   await click(button("Passkey hinzufügen"));
+  await fill(field("Aktuelles Passwort"), "test-password");
+  await click(button("Bestätigen"));
 }
 
 test("adding a passkey reports success, clears identity fields and requires a fresh proof for a later change", async () => {
@@ -80,7 +86,7 @@ test("adding a passkey reports success, clears identity fields and requires a fr
     assert.ok(document.activeElement === field("Aktuelles Passwort"), "the new proof field receives focus");
     assert.equal(f.requests.filter(r => r.path === "/reauth").length, 1, "opening identity confirmation does not reuse or submit empty proof");
     await fill(field("Aktuelles Passwort"), "fresh-password");
-    await click(document.querySelector('button[aria-label="Passkey „Laptop“ entfernen"]'));
+    await click(button("Bestätigen"));
     assert.equal(f.requests.filter(r => r.path === "/reauth").length, 2);
     assert.equal(document.querySelector('[role="status"]').textContent, "Der Passkey wurde entfernt.");
   } finally { await f.cleanup(); }
@@ -93,7 +99,7 @@ test("a rejected registration retains the form and reports no success", async ()
     assert.ok(document.querySelector('[role="alert"]'));
     assert.ok(!document.querySelector('[role="status"]'));
     assert.equal(field("Name des Passkeys").value, "  Laptop  ");
-    assert.ok(field("Aktuelles Passwort"));
+    assert.ok(!field("Aktuelles Passwort"));
   } finally { await f.cleanup(); }
 });
 
@@ -111,12 +117,14 @@ test("a saved passkey followed by a failed refresh is still reported as saved", 
 test("requesting an email proof keeps confirmation open until the security change succeeds", async () => {
   const f = await fixture({ email: true });
   try {
+    await fill(field("Name des Passkeys"), "Laptop");
+    await click(button("Passkey hinzufügen"));
+    assert.ok(button("Per E-Mail bestätigen (Konten ohne Passwort)"));
     await click(button("Per E-Mail bestätigen (Konten ohne Passwort)"));
     assert.ok(field("E-Mail-Bestätigungscode"));
     assert.ok(!document.querySelector('[role="status"]'));
     await fill(field("E-Mail-Bestätigungscode"), "12345678");
-    await fill(field("Name des Passkeys"), "Laptop");
-    await click(button("Passkey hinzufügen"));
+    await click(button("Bestätigen"));
     assert.ok(!field("E-Mail-Bestätigungscode"));
     assert.equal(f.requests.find(r => r.path === "/reauth/email/confirm").body.emailCode, "12345678");
     assert.match(document.querySelector('[role="status"]').textContent, /hinzugefügt/);
@@ -126,8 +134,9 @@ test("requesting an email proof keeps confirmation open until the security chang
 test("authenticator setup stays pending until the code is confirmed", async () => {
   const f = await fixture();
   try {
-    await fill(field("Aktuelles Passwort"), "test-password");
     await click(button("Authenticator einrichten"));
+    await fill(field("Aktuelles Passwort"), "test-password");
+    await click(button("Bestätigen"));
     await waitFor(() => document.querySelector('[role="status"]'));
     assert.match(document.querySelector('[role="status"]').textContent, /Einrichtung wurde gestartet/);
     assert.ok(field("Authenticator- oder Wiederherstellungscode"));
@@ -138,5 +147,34 @@ test("authenticator setup stays pending until the code is confirmed", async () =
     assert.match(document.body.textContent, /test-only-recovery/);
     assert.equal(f.requests.filter(r => r.path === "/reauth").length, 1);
     assert.equal(f.requests.find(r => r.path === "/totp/confirm").body.code, "123456");
+  } finally { await f.cleanup(); }
+});
+
+test("confirming a protected action with an existing passkey skips password entry", async () => {
+  const f = await fixture();
+  try {
+    await click(button("Authenticator einrichten"));
+    assert.ok(button("Mit Passkey bestätigen"));
+    await click(button("Mit Passkey bestätigen"));
+    await waitFor(() => document.querySelector('[role="status"]'));
+    assert.match(document.querySelector('[role="status"]').textContent, /Einrichtung wurde gestartet/);
+    assert.equal(f.requests.filter(r => r.path === "/reauth/passkey/options").length, 1);
+    assert.equal(f.requests.filter(r => r.path === "/reauth/passkey/verify").length, 1);
+    assert.equal(f.requests.filter(r => r.path === "/reauth").length, 0, "no password reauth needed");
+  } finally { await f.cleanup(); }
+});
+
+test("cancelling the confirmation dialog leaves the form unchanged and reports no error", async () => {
+  const f = await fixture();
+  try {
+    await fill(field("Name des Passkeys"), "Tablet");
+    await click(button("Passkey hinzufügen"));
+    assert.ok(field("Aktuelles Passwort"));
+    await click(button("Abbrechen"));
+    assert.ok(!field("Aktuelles Passwort"));
+    assert.ok(!document.querySelector('[role="alert"]'));
+    assert.ok(!document.querySelector('[role="status"]'));
+    assert.equal(field("Name des Passkeys").value, "Tablet");
+    assert.equal(f.requests.filter(r => r.path === "/reauth").length, 0);
   } finally { await f.cleanup(); }
 });

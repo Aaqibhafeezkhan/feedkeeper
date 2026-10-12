@@ -119,6 +119,7 @@
     "folderDeleted": "Category \"{{name}}\" deleted.",
     "notify": "Notify me about new articles",
     "notifyHint": "Sends a notification to the devices where you turned notifications on.",
+    "notifyActive": "Notifications active for this feed",
     "badge": "Count on the app icon",
     "badgeHint": "Unread articles of this feed are added to the number on the app icon. Off by default."
   },
@@ -378,6 +379,11 @@
     "failed": "Could not confirm this action. Check your entries and try again.",
     "lastPasskey": "Add another passkey before removing the last one.",
     "signInPasskey": "Sign in with a passkey",
-    "revocationHint": "Changing two-factor authentication signs out other sessions and revokes device and API tokens. Reconnect your apps afterwards."
+    "revocationHint": "Changing two-factor authentication signs out other sessions and revokes device and API tokens. Reconnect your apps afterwards.",
+    "confirmTitle": "Confirm identity",
+    "orPassword": "or with password",
+    "invalidCredentials": "The password or confirmation code is incorrect.",
+    "passkeyCancelled": "Passkey confirmation was cancelled or not recognized.",
+    "confirmAction": "Confirm"
   }
 }

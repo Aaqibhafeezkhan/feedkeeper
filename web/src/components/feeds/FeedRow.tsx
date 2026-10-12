@@ -10,7 +10,7 @@ import { CustomSelect, type SelectOption } from "../CustomSelect.tsx";
 import { Favicon } from "../Favicon.tsx";
 import { formatRelativeTime } from "../../utils/relativeTime.ts";
 import { toast } from "../../utils/toast.ts";
-import { AlertIcon, CheckAllIcon, EditIcon, GripIcon, RefreshIcon, TrashIcon } from "./icons.tsx";
+import { AlertIcon, BellIcon, CheckAllIcon, EditIcon, GripIcon, RefreshIcon, TrashIcon } from "./icons.tsx";
 
 export function formatInterval(t: (key: string, opts?: Record<string, unknown>) => string, minutes: number): string {
   if (minutes < 60) return t("feeds.minutesShort", { count: minutes });
@@ -197,6 +197,15 @@ export function FeedRow({ feed, editing, refreshing, highlighted = false, folder
             <Link to={`/items?feed=${feed.id}`} className="truncate font-semibold text-[var(--c-text)] hover:underline">
               {name}
             </Link>
+            {feed.notify !== 0 && (
+              <span
+                className="inline-flex shrink-0 items-center text-[var(--c-text-muted)]"
+                title={t("feeds.notifyActive")}
+                aria-label={t("feeds.notifyActive")}
+              >
+                <BellIcon className="h-3.5 w-3.5" />
+              </span>
+            )}
           </div>
           <p className="mt-0.5 truncate text-xs text-[var(--c-text-muted)]">
             {[

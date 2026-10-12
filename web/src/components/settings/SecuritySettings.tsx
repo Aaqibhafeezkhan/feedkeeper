@@ -1,104 +1,490 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import QRCode from "qrcode";
 import { passkeyProof, registerPasskey, securityRequest } from "../../api/security.ts";
 import { SettingsCard, SettingBlock } from "./ui.tsx";
-interface SecurityStatus { totpEnabled: boolean; passkeysEnabled: boolean; emailReauthEnabled?: boolean; recoveryCodesRemaining: number; passkeys: { id: string; name: string; created_at: string }[] }
-const confirmationRequired = Symbol("confirmationRequired");
+
+interface SecurityStatus {
+  totpEnabled: boolean;
+  passkeysEnabled: boolean;
+  emailReauthEnabled?: boolean;
+  recoveryCodesRemaining: number;
+  passkeys: { id: string; name: string; created_at: string }[];
+}
+
+function ReauthModal({
+  status,
+  onSuccess,
+  onCancel,
+}: {
+  status: SecurityStatus;
+  onSuccess: (token: string) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    passwordRef.current?.focus();
+  }, []);
+
+  async function handlePasskey() {
+    setBusy(true);
+    setError("");
+    try {
+      const token = await passkeyProof();
+      onSuccess(token);
+    } catch {
+      setError(t("security.passkeyCancelled"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePasswordSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!password.trim() && !emailCode.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await securityRequest<{ reauthToken: string }>(
+        emailSent ? "/reauth/email/confirm" : "/reauth",
+        { password, code, emailCode },
+      );
+      onSuccess(result.reauthToken);
+    } catch {
+      setError(t("security.invalidCredentials"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSendEmail() {
+    setBusy(true);
+    setError("");
+    try {
+      await securityRequest("/reauth/email", {});
+      setEmailSent(true);
+    } catch {
+      setError(t("security.failed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-fade-in"
+        onClick={busy ? undefined : onCancel}
+        aria-hidden="true"
+      />
+      <div
+        className="relative z-10 w-full max-w-md rounded-2xl border border-[var(--c-border)] bg-[var(--c-surface)] p-6 shadow-2xl animate-scale-in"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reauth-modal-title"
+      >
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <h2 id="reauth-modal-title" className="text-lg font-bold text-[var(--c-text)]">
+            {t("security.confirmTitle")}
+          </h2>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="text-[var(--c-text-muted)] hover:text-[var(--c-text)] p-1 rounded-lg"
+            aria-label={t("security.cancel")}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <p className="text-sm text-[var(--c-text-muted)] mb-5">
+          {t("security.reauth")}
+        </p>
+
+        {error && (
+          <p role="alert" className="text-sm text-[var(--c-danger)] mb-4 p-2.5 rounded-lg bg-[var(--c-danger-bg)] border border-[var(--c-danger-border)]">
+            {error}
+          </p>
+        )}
+
+        {status.passkeys.length > 0 && (
+          <div className="mb-5">
+            <button
+              type="button"
+              className="btn-primary w-full flex items-center justify-center gap-2 py-2.5 font-medium"
+              onClick={handlePasskey}
+              disabled={busy}
+            >
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="7.5" cy="15.5" r="5.5" />
+                <path d="m21 2-9.6 9.6M15.5 7.5l3 3M18.5 4.5l3 3" />
+              </svg>
+              {t("security.usePasskey")}
+            </button>
+
+            <div className="relative my-4 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[var(--c-border)]" />
+              </div>
+              <span className="relative bg-[var(--c-surface)] px-3 text-xs uppercase tracking-wider text-[var(--c-text-muted)]">
+                {t("security.orPassword")}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3">
+          {!emailSent && (
+            <label className="flex flex-col gap-1 text-xs font-medium text-[var(--c-text-muted)]">
+              {t("security.password")}
+              <input
+                ref={passwordRef}
+                className="input text-sm text-[var(--c-text)]"
+                type="password"
+                autoComplete="current-password"
+                disabled={busy}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t("security.password")}
+                aria-label={t("security.password")}
+                required={!status.emailReauthEnabled}
+              />
+            </label>
+          )}
+
+          {status.totpEnabled && (
+            <label className="flex flex-col gap-1 text-xs font-medium text-[var(--c-text-muted)]">
+              {t("security.code")}
+              <input
+                className="input text-sm text-[var(--c-text)]"
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                disabled={busy}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder={t("security.code")}
+                aria-label={t("security.code")}
+              />
+            </label>
+          )}
+
+          {status.emailReauthEnabled && !emailSent && (
+            <button
+              type="button"
+              className="btn-secondary self-start text-xs"
+              disabled={busy}
+              onClick={handleSendEmail}
+            >
+              {t("security.sendEmail")}
+            </button>
+          )}
+
+          {emailSent && (
+            <label className="flex flex-col gap-1 text-xs font-medium text-[var(--c-text-muted)]">
+              {t("security.emailCode")}
+              <input
+                ref={passwordRef}
+                className="input text-sm text-[var(--c-text)]"
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                disabled={busy}
+                value={emailCode}
+                onChange={(e) => setEmailCode(e.target.value)}
+                placeholder={t("security.emailCode")}
+                aria-label={t("security.emailCode")}
+                required
+              />
+            </label>
+          )}
+
+          <div className="flex justify-end gap-2.5 mt-2">
+            <button type="button" className="btn-secondary text-sm" onClick={onCancel} disabled={busy}>
+              {t("security.cancel")}
+            </button>
+            <button
+              type="submit"
+              className="btn-primary text-sm"
+              disabled={busy || (!password.trim() && !emailCode.trim())}
+            >
+              {t("security.confirmAction")}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function SecuritySettings() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<SecurityStatus>();
-  const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
   const [name, setName] = useState("");
-  const [usePasskey, setUsePasskey] = useState(false);
-  const [emailCode, setEmailCode] = useState("");
-  const [emailSent, setEmailSent] = useState(false);
+  const [code, setCode] = useState("");
   const [setup, setSetup] = useState<{ challengeId: string; secret: string; qr: string }>();
   const [recovery, setRecovery] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
-  const [identityOpen, setIdentityOpen] = useState(true);
-  const identityId = useId();
-  const proofInput = useRef<HTMLInputElement>(null);
-  const focusProof = useRef(false);
+  const [proofRequest, setProofRequest] = useState<{ resolve: (token: string) => void; reject: (err: Error) => void } | null>(null);
+
   const load = async () => {
     const result = await securityRequest<SecurityStatus>("/", undefined, "GET");
     setStatus(result);
-    if (!result.passkeys.length) setUsePasskey(false);
   };
-  useEffect(() => { void load().catch(() => setError(t("security.failed"))); }, [t]);
+
   useEffect(() => {
-    if (identityOpen && !busy && focusProof.current) { focusProof.current = false; proofInput.current?.focus(); }
-  }, [identityOpen, busy]);
-  async function run(action: () => Promise<void>, clear = true, message = "security.updated") {
-    setBusy(true); setError(""); setSuccess("");
+    void load().catch(() => setError(t("security.failed")));
+  }, [t]);
+
+  function requestProof(): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      setProofRequest({ resolve, reject });
+    });
+  }
+
+  function handleProofSuccess(token: string) {
+    const req = proofRequest;
+    setProofRequest(null);
+    if (req) req.resolve(token);
+  }
+
+  function handleProofCancel() {
+    const req = proofRequest;
+    setProofRequest(null);
+    if (req) req.reject(new Error("cancelled"));
+  }
+
+  async function run(action: (reauthToken: string) => Promise<void>, message?: string) {
+    setError("");
+    setSuccess("");
+    let token: string;
+    try {
+      token = await requestProof();
+    } catch {
+      // User cancelled reauth dialog
+      return;
+    }
+    setBusy(true);
     let completed = false;
     try {
-      await action(); completed = true;
-      if (clear) {
-        setPassword(""); setCode(""); setEmailCode(""); setEmailSent(false);
-        setIdentityOpen(false); setSuccess(t(message));
-      }
+      await action(token);
+      completed = true;
+      if (message) setSuccess(t(message));
       await load();
+    } catch (failure) {
+      setError(
+        t(
+          completed
+            ? "security.refreshFailed"
+            : failure instanceof Error && failure.message === "last_passkey"
+              ? "security.lastPasskey"
+              : "security.failed",
+        ),
+      );
+    } finally {
+      setBusy(false);
     }
-    catch (failure) {
-      if (failure !== confirmationRequired) setError(t(completed && clear ? "security.refreshFailed" : failure instanceof Error && failure.message === "last_passkey" ? "security.lastPasskey" : "security.failed"));
-    }
-    finally { setBusy(false); }
   }
-  async function proof() {
-    if (usePasskey) return passkeyProof();
-    if (!identityOpen) {
-      focusProof.current = true; setIdentityOpen(true);
-      throw confirmationRequired;
-    }
-    const result = await securityRequest<{ reauthToken: string }>(emailSent ? "/reauth/email/confirm" : "/reauth", { password, code, emailCode });
-    return result.reauthToken;
-  }
+
   if (!status) return error ? <p role="alert">{error}</p> : null;
-  return <SettingsCard title={t("security.title")} description={t("security.intro")}>
-    <SettingBlock>
+
+  return (
+    <SettingsCard title={t("security.title")} description={t("security.intro")}>
       {success && <p role="status" className="text-sm text-[var(--c-green3)] mb-3">{success}</p>}
       {error && <p role="alert" className="text-sm text-danger mb-3">{error}</p>}
-      <button type="button" className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium" aria-expanded={identityOpen} aria-controls={identityId} disabled={busy} onClick={() => setIdentityOpen(!identityOpen)}>
-        {t("security.confirmIdentity")}
-        <svg className={`h-4 w-4 shrink-0 transition-transform ${identityOpen ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-      </button>
-      <div id={identityId} hidden={!identityOpen} className="mt-3">{identityOpen && <>
-        <p className="text-sm text-[var(--c-text-muted)] mb-3">{t("security.reauth")}</p>
-        {!!status.passkeys.length && <label className="flex items-center gap-2 mb-3 text-sm"><input type="checkbox" checked={usePasskey} disabled={busy} onChange={event => setUsePasskey(event.target.checked)} />{t("security.usePasskey")}</label>}
-        {!usePasskey && <div className="flex flex-col gap-3">
-          {!emailSent && <input ref={proofInput} className="input" type="password" autoComplete="current-password" disabled={busy} value={password} onChange={event => setPassword(event.target.value)} aria-label={t("security.password")} placeholder={t("security.password")} />}
-          {status.totpEnabled && <input className="input" autoComplete="one-time-code" value={code} onChange={event => setCode(event.target.value)} aria-label={t("security.code")} placeholder={t("security.code")} />}
-          {status.emailReauthEnabled && !emailSent && <button className="btn-secondary self-start" disabled={busy} onClick={() => void run(async () => { await securityRequest("/reauth/email", {}); setEmailSent(true); }, false)}>{t("security.sendEmail")}</button>}
-          {emailSent && <input ref={proofInput} className="input" autoComplete="one-time-code" value={emailCode} onChange={event => setEmailCode(event.target.value)} aria-label={t("security.emailCode")} placeholder={t("security.emailCode")} />}
-        </div>}
-      </>}</div>
-    </SettingBlock>
-    <SettingBlock>
-      <h3 className="font-semibold mb-3">{t("security.passkeys")}</h3>
-      {!!status.passkeys.length && <ul className="mb-4 divide-y divide-[var(--c-border)] rounded-xl border border-[var(--c-border)]">
-        {status.passkeys.map(key => <li key={key.id} className="flex items-center justify-between gap-3 px-4 py-3"><span className="min-w-0 flex-1 [overflow-wrap:anywhere] text-sm font-medium">{key.name}</span><button type="button" className="btn-secondary shrink-0 text-sm" disabled={busy} aria-label={t("security.removeNamed", { name: key.name })} onClick={() => void run(async () => { await securityRequest(`/passkeys/${encodeURIComponent(key.id)}`, { reauthToken: await proof() }, "DELETE"); }, true, "security.passkeyRemoved")}>{t("security.remove")}</button></li>)}
-      </ul>}
-      {status.passkeysEnabled ? <form className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto]" onSubmit={event => { event.preventDefault(); if (!busy && name.trim()) void run(async () => { await registerPasskey(await proof(), name.trim()); setName(""); }, true, "security.passkeyAdded"); }}>
-        <label className="min-w-0 text-sm font-medium">{t("security.passkeyName")}<input className="input mt-2" value={name} maxLength={100} disabled={busy} onChange={event => setName(event.target.value)} placeholder={t("security.passkeyName")} /></label>
-        <button type="submit" className="btn-primary whitespace-nowrap" disabled={busy || !name.trim()}>{t("security.addPasskey")}</button>
-      </form> : <p>{t("security.httpsRequired")}</p>}
-    </SettingBlock>
-    <SettingBlock>
-      <h3 className="font-semibold mb-3">{t("security.twoFactor")}</h3>
-      <p className="text-sm mb-3">{t(status.totpEnabled ? "security.enabled" : "security.disabled")}</p>
-      <p className="text-sm mb-3">{t("security.revocationHint")}</p>
-      {!setup && <button className="btn-secondary" disabled={busy || recovery.length > 0} onClick={() => void run(async () => {
-        const reauthToken = await proof();
-        if (status.totpEnabled) { await securityRequest("/totp/disable", { reauthToken }); }
-        else { const result = await securityRequest<{ challengeId: string; secret: string; uri: string }>("/totp/setup", { reauthToken }); setSetup({ ...result, qr: await QRCode.toDataURL(result.uri) }); }
-      }, true, status.totpEnabled ? "security.updated" : "security.authenticatorStarted")}>{t(status.totpEnabled ? "security.disable" : "security.enable")}</button>}
-      {setup && <div className="flex flex-col gap-3 mt-3"><p>{t("security.scan")}</p><img src={setup.qr} alt={t("security.qrAlt")} width={200} height={200} /><code className="break-all select-all">{setup.secret}</code><input className="input" value={code} autoComplete="one-time-code" inputMode="numeric" onChange={event => setCode(event.target.value)} aria-label={t("security.code")} placeholder={t("security.code")} /><div className="flex gap-3"><button className="btn-primary" disabled={busy} onClick={() => void run(async () => { const result = await securityRequest<{ recoveryCodes: string[] }>("/totp/confirm", { challengeId: setup.challengeId, code }); setRecovery(result.recoveryCodes); setSetup(undefined); })}>{t("security.confirm")}</button><button className="btn-secondary" disabled={busy} onClick={() => { setSetup(undefined); setCode(""); }}>{t("security.cancel")}</button></div></div>}
-      {status.totpEnabled && !recovery.length && <button className="btn-secondary ml-3" disabled={busy} onClick={() => void run(async () => { const result = await securityRequest<{ recoveryCodes: string[] }>("/recovery-codes", { reauthToken: await proof() }); setRecovery(result.recoveryCodes); })}>{t("security.newRecovery")}</button>}
-      {!!recovery.length && <div className="mt-4" role="status"><p className="mb-3">{t("security.saveRecovery")}</p><pre className="select-all whitespace-pre-wrap">{recovery.join("\n")}</pre><button className="btn-secondary mt-3" onClick={() => setRecovery([])}>{t("security.saved")}</button></div>}
-    </SettingBlock>
-  </SettingsCard>;
+
+      <SettingBlock>
+        <h3 className="font-semibold mb-3">{t("security.passkeys")}</h3>
+        {!!status.passkeys.length && (
+          <ul className="mb-4 divide-y divide-[var(--c-border)] rounded-xl border border-[var(--c-border)]">
+            {status.passkeys.map((key) => (
+              <li key={key.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className="min-w-0 flex-1 [overflow-wrap:anywhere] text-sm font-medium">{key.name}</span>
+                <button
+                  type="button"
+                  className="btn-secondary shrink-0 text-sm"
+                  disabled={busy}
+                  aria-label={t("security.removeNamed", { name: key.name })}
+                  onClick={() =>
+                    void run(
+                      async (token) => {
+                        await securityRequest(`/passkeys/${encodeURIComponent(key.id)}`, { reauthToken: token }, "DELETE");
+                      },
+                      "security.passkeyRemoved",
+                    )
+                  }
+                >
+                  {t("security.remove")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {status.passkeysEnabled ? (
+          <form
+            className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!busy && name.trim()) {
+                const passkeyName = name.trim();
+                void run(async (token) => {
+                  await registerPasskey(token, passkeyName);
+                  setName("");
+                }, "security.passkeyAdded");
+              }
+            }}
+          >
+            <label className="min-w-0 text-sm font-medium">
+              {t("security.passkeyName")}
+              <input
+                className="input mt-2"
+                value={name}
+                maxLength={100}
+                disabled={busy}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t("security.passkeyName")}
+                aria-label={t("security.passkeyName")}
+              />
+            </label>
+            <button type="submit" className="btn-primary whitespace-nowrap" disabled={busy || !name.trim()}>
+              {t("security.addPasskey")}
+            </button>
+          </form>
+        ) : (
+          <p>{t("security.httpsRequired")}</p>
+        )}
+      </SettingBlock>
+
+      <SettingBlock>
+        <h3 className="font-semibold mb-3">{t("security.twoFactor")}</h3>
+        <p className="text-sm mb-3">{t(status.totpEnabled ? "security.enabled" : "security.disabled")}</p>
+        <p className="text-sm mb-3">{t("security.revocationHint")}</p>
+
+        {!setup && (
+          <button
+            className="btn-secondary"
+            disabled={busy || recovery.length > 0}
+            onClick={() =>
+              void run(
+                async (token) => {
+                  if (status.totpEnabled) {
+                    await securityRequest("/totp/disable", { reauthToken: token });
+                  } else {
+                    const result = await securityRequest<{ challengeId: string; secret: string; uri: string }>(
+                      "/totp/setup",
+                      { reauthToken: token },
+                    );
+                    setSetup({ ...result, qr: await QRCode.toDataURL(result.uri) });
+                  }
+                },
+                status.totpEnabled ? "security.updated" : "security.authenticatorStarted",
+              )
+            }
+          >
+            {t(status.totpEnabled ? "security.disable" : "security.enable")}
+          </button>
+        )}
+
+        {setup && (
+          <div className="flex flex-col gap-3 mt-3">
+            <p>{t("security.scan")}</p>
+            <img src={setup.qr} alt={t("security.qrAlt")} width={200} height={200} />
+            <code className="break-all select-all">{setup.secret}</code>
+            <input
+              className="input"
+              value={code}
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              onChange={(event) => setCode(event.target.value)}
+              aria-label={t("security.code")}
+              placeholder={t("security.code")}
+            />
+            <div className="flex gap-3">
+              <button
+                className="btn-primary"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  setError("");
+                  try {
+                    const result = await securityRequest<{ recoveryCodes: string[] }>("/totp/confirm", {
+                      challengeId: setup.challengeId,
+                      code,
+                    });
+                    setRecovery(result.recoveryCodes);
+                    setSetup(undefined);
+                    setCode("");
+                    setSuccess(t("security.updated"));
+                    await load();
+                  } catch {
+                    setError(t("security.failed"));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {t("security.confirm")}
+              </button>
+              <button
+                className="btn-secondary"
+                disabled={busy}
+                onClick={() => {
+                  setSetup(undefined);
+                  setCode("");
+                }}
+              >
+                {t("security.cancel")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {status.totpEnabled && !recovery.length && (
+          <button
+            className="btn-secondary ml-3"
+            disabled={busy}
+            onClick={() =>
+              void run(async (token) => {
+                const result = await securityRequest<{ recoveryCodes: string[] }>("/recovery-codes", {
+                  reauthToken: token,
+                });
+                setRecovery(result.recoveryCodes);
+              })
+            }
+          >
+            {t("security.newRecovery")}
+          </button>
+        )}
+
+        {!!recovery.length && (
+          <div className="mt-4" role="status">
+            <p className="mb-3">{t("security.saveRecovery")}</p>
+            <pre className="select-all whitespace-pre-wrap">{recovery.join("\n")}</pre>
+            <button className="btn-secondary mt-3" onClick={() => setRecovery([])}>
+              {t("security.saved")}
+            </button>
+          </div>
+        )}
+      </SettingBlock>
+
+      {proofRequest && (
+        <ReauthModal
+          status={status}
+          onSuccess={handleProofSuccess}
+          onCancel={handleProofCancel}
+        />
+      )}
+    </SettingsCard>
+  );
 }

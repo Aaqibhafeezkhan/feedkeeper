@@ -4,7 +4,15 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
-## [0.21.3] - 2026-10-12
+## [0.21.4] - 2026-10-12
+
+### Fixed
+- Security settings now use an on-demand modal confirmation dialog for all protected actions (passkey registration, passkey removal, authenticator setup/disable, and recovery code generation), eliminating unexpected submission errors from empty identity fields.
+- Accounts with existing passkeys can confirm protected security actions directly via passkey biometric/security key prompt without entering their password.
+- Cancelling the confirmation dialog cleanly closes the modal without displaying error messages and preserves pending form input.
+
+### Added
+- Feeds with active notifications now display a visual bell icon directly in the feed list row, visible even when the feed edit details are closed.
 
 ### Fixed
 - Security settings now confirm successful passkey changes and collapse the identity fields afterwards. A later change still requires a fresh one-use proof; opening the confirmation does not submit an empty password. Saved changes remain clearly reported when reloading the overview fails.

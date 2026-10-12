@@ -119,6 +119,7 @@
     "folderDeleted": "Kategorie „{{name}}“ gelöscht.",
     "notify": "Bei neuen Artikeln benachrichtigen",
     "notifyHint": "Sendet eine Benachrichtigung an die Geräte, auf denen du Benachrichtigungen aktiviert hast.",
+    "notifyActive": "Benachrichtigungen für diesen Feed aktiv",
     "badge": "Zahl am App-Symbol",
     "badgeHint": "Ungelesene Artikel dieses Feeds zählen zur Zahl am App-Symbol. Standardmäßig aus."
   },
@@ -378,6 +379,11 @@
     "failed": "Die Aktion konnte nicht bestätigt werden. Prüfe deine Eingaben und versuche es erneut.",
     "lastPasskey": "Füge einen weiteren Passkey hinzu, bevor du den letzten entfernst.",
     "signInPasskey": "Mit Passkey anmelden",
-    "revocationHint": "Änderungen an der Zwei-Faktor-Anmeldung melden andere Sitzungen ab und widerrufen Geräte- und API-Tokens. Verbinde deine Apps danach neu."
+    "revocationHint": "Änderungen an der Zwei-Faktor-Anmeldung melden andere Sitzungen ab und widerrufen Geräte- und API-Tokens. Verbinde deine Apps danach neu.",
+    "confirmTitle": "Identität bestätigen",
+    "orPassword": "oder mit Passwort",
+    "invalidCredentials": "Das Passwort oder der Bestätigungscode ist nicht korrekt.",
+    "passkeyCancelled": "Passkey-Bestätigung wurde abgebrochen oder nicht erkannt.",
+    "confirmAction": "Bestätigen"
   }
 }
