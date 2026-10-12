@@ -8,6 +8,8 @@ Add a passkey after confirming your identity with your current password (and sec
 
 Passkeys use WebAuthn. FeedKeeper requires user verification with the device's PIN or biometrics, during registration and login. A verified passkey signs in without a password or an additional authenticator code. The server stores public keys, never private keys or biometric data.
 
+To sign in, focus the email field and select a saved passkey from your browser's autofill suggestions. Browsers with WebAuthn but without passkey autofill offer a **Sign in with passkey** text link instead. Email and password remain available. Pending passkey requests stop when you submit a password or leave the form; their short-lived challenges are renewed while the login stays open.
+
 Set `PUBLIC_URL` to the **stable external HTTPS origin** of your installation, for example `https://feeds.example.org`. The RP ID is its hostname; the exact origin and RP ID are checked against server configuration, never inferred from incoming headers. Localhost is permitted for development. An ordinary HTTP LAN address cannot use passkeys. Changing the domain can make existing passkeys unusable; retain a working password/recovery route and enroll new passkeys before retiring the old domain.
 
 ## Authenticator codes

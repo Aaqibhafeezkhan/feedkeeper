@@ -1,6 +1,7 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useEffectEvent, useRef, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { passkeyLogin, securityRequest } from "../api/security.ts";
+import { securityRequest } from "../api/security.ts";
+import { createPasskeyLogin } from "../api/passkeyLogin.ts";
 import { ApiError, api } from "../api/client.ts";
 import { useAuth } from "../auth/AuthContext.tsx";
 import { ExtensionMount } from "../components/settings/ExtensionMount.tsx";
@@ -16,12 +17,34 @@ export function LoginPage() {
   const [challengeId, setChallengeId] = useState<string>();
   const [code, setCode] = useState("");
   const [passkeys, setPasskeys] = useState(false);
+  const [autofill, setAutofill] = useState<boolean>();
+  const passkey = useRef<ReturnType<typeof createPasskeyLogin>>(undefined);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showGithubLink, setShowGithubLink] = useState(true);
   const [githubUrl, setGithubUrl] = useState("https://github.com/visualfusion/feedkeeper");
   const hostForm = resolveLoginForm(useExtensions());
+  const hostMount = hostForm?.mount;
+  const passkeyFinished = useEffectEvent(async () => { await finished(); setSubmitting(false); });
+  const passkeyFailed = useEffectEvent(() => { setError(t("login.error")); setSubmitting(false); });
+
+  useEffect(() => {
+    if (!passkeys || challengeId || hostMount) return;
+    const login = createPasskeyLogin({
+      onAutofill: setAutofill,
+      onSelect: () => { setSubmitting(true); setError(null); },
+      onSuccess: passkeyFinished,
+      onError: passkeyFailed,
+    });
+    passkey.current = login;
+    void login.start();
+    const resume = () => { void login.start(); };
+    const suspend = () => { login.stop(); setSubmitting(false); };
+    window.addEventListener("pagehide", suspend);
+    window.addEventListener("pageshow", resume);
+    return () => { login.stop(); passkey.current = undefined; window.removeEventListener("pagehide", suspend); window.removeEventListener("pageshow", resume); };
+  }, [passkeys, challengeId, hostMount]);
 
   useEffect(() => {
     void securityRequest<{ passkeys: boolean }>("/config", undefined, "GET").then(result => setPasskeys(result.passkeys)).catch(() => {});
@@ -40,6 +63,8 @@ export function LoginPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (submitting) return;
+    passkey.current?.stop();
     setSubmitting(true);
     setError(null);
     try {
@@ -49,7 +74,7 @@ export function LoginPage() {
     } catch (failure) {
       if (failure instanceof ApiError && failure.code === "mfa_required") {
         setChallengeId((failure.data as { challengeId: string }).challengeId); setPassword("");
-      } else setError(t("login.error"));
+      } else { setError(t("login.error")); void passkey.current?.start(); }
     } finally {
       setSubmitting(false);
     }
@@ -59,12 +84,6 @@ export function LoginPage() {
     const next = new URLSearchParams(window.location.search).get("next");
     if (next?.startsWith("/oauth/authorize?")) window.location.assign(next);
     else await refresh();
-  }
-  async function withPasskey() {
-    setSubmitting(true); setError(null);
-    try { await passkeyLogin(); await finished(); }
-    catch { setError(t("login.error")); }
-    finally { setSubmitting(false); }
   }
 
   return (
@@ -83,20 +102,28 @@ export function LoginPage() {
         ) : (
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             {!challengeId && <><div>
-              <label className="text-sm font-medium block mb-1">{t("login.emailLabel")}</label>
+              <label htmlFor="login-email" className="text-sm font-medium block mb-1">{t("login.emailLabel")}</label>
               <input
+                id="login-email"
+                name="username"
                 type="email"
+                autoComplete="username webauthn"
                 required
                 autoFocus
                 className="input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onFocus={() => { if (!submitting) void passkey.current?.start(); }}
+                onClick={() => { if (!submitting) void passkey.current?.start(); }}
               />
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1">{t("login.passwordLabel")}</label>
+              <label htmlFor="login-password" className="text-sm font-medium block mb-1">{t("login.passwordLabel")}</label>
               <input
                 type="password"
+                id="login-password"
+                name="password"
+                autoComplete="current-password"
                 required
                 className="input"
                 value={password}
@@ -105,7 +132,7 @@ export function LoginPage() {
             </div>
             </>}
             {challengeId && <><label htmlFor="mfa-code">{t("security.code")}</label><input id="mfa-code" className="input" autoFocus autoComplete="one-time-code" value={code} onChange={event => setCode(event.target.value)} required /><button type="button" className="btn-secondary" onClick={() => { setChallengeId(undefined); setCode(""); }}>{t("security.cancel")}</button></>}
-            {passkeys && !challengeId && <button type="button" className="btn-secondary" disabled={submitting} onClick={() => void withPasskey()}>{t("security.signInPasskey")}</button>}
+            {passkeys && !challengeId && autofill === false && <button type="button" className="text-sm underline" disabled={submitting} onClick={() => void passkey.current?.start(false)}>{t("security.signInPasskey")}</button>}
             {error && <p className="text-sm text-danger">{error}</p>}
             <button type="submit" disabled={submitting} className="btn-primary">
               {t("login.submit")}

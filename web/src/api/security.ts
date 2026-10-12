@@ -1,7 +1,7 @@
 import { startAuthentication, startRegistration, type PublicKeyCredentialRequestOptionsJSON, type PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
 import { ApiError } from "./client.ts";
-export async function securityRequest<T = void>(path: string, body?: unknown, method = "POST"): Promise<T> {
-  const response = await fetch(`/api/auth/security${path}`, { method, credentials: "same-origin", headers: { "Content-Type": "application/json" }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
+export async function securityRequest<T = void>(path: string, body?: unknown, method = "POST", signal?: AbortSignal): Promise<T> {
+  const response = await fetch(`/api/auth/security${path}`, { method, signal, credentials: "same-origin", headers: { "Content-Type": "application/json" }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
   const result = response.status === 204 ? undefined : await response.json();
   if (!response.ok) throw new ApiError(response.status, result.error, result);
   return result;

@@ -4,6 +4,15 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-10-12
+
+### Changed
+- Sign in with a passkey from the email field using browser autofill. Supporting browsers no longer show a separate passkey button; other WebAuthn browsers retain a text link. Password sign-in and authenticator codes remain available.
+- Pending passkey requests stop on password submission or navigation and renew before their challenges expire.
+
+### Upgrade notes
+- No database migration or configuration change is needed. Existing passkeys continue to work on the same HTTPS origin.
+
 ## [0.21.0] - 2026-10-11
 
 ### Changed
