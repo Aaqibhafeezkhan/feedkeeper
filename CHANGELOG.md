@@ -4,6 +4,16 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.21.6] - 2026-10-12
+
+### Fixed
+- Onboarding on articles page: display the welcome onboarding experience when an account has 0 feeds regardless of route query filters, and automatically strip zombie `?folder=` / `?feed=` parameters.
+- Replaced all emojis across the onboarding flow and starter packs with crisp inline SVG vector icons.
+- Updated newspaper view toggle button icon in the articles page top bar to match the new newspaper vector icon.
+
+### Added
+- Structured onboarding welcome experience with dedicated cards for theme discovery starter packs, single website subscription, and OPML import.
+
 ## [0.21.5] - 2026-10-12
 
 ### Fixed
