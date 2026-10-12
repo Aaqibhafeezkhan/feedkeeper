@@ -4,7 +4,11 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
-## [0.21.4] - 2026-10-12
+## [0.21.5] - 2026-10-12
+
+### Fixed
+- Reauth modal dialog is now mounted directly to the document body via a React portal, ensuring it is centered across the entire viewport and covers the full page with its backdrop instead of being constrained to the settings content column.
+- Security status and alert feedback messages are now formatted inside structured banners with proper card padding, theme-aware background/border styling, and status icons.
 
 ### Fixed
 - Security settings now use an on-demand modal confirmation dialog for all protected actions (passkey registration, passkey removal, authenticator setup/disable, and recovery code generation), eliminating unexpected submission errors from empty identity fields.

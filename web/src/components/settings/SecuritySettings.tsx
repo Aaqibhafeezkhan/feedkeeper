@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import QRCode from "qrcode";
 import { passkeyProof, registerPasskey, securityRequest } from "../../api/security.ts";
@@ -78,7 +79,9 @@ function ReauthModal({
     }
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-fade-in"
@@ -222,7 +225,8 @@ function ReauthModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -301,8 +305,40 @@ export function SecuritySettings() {
 
   return (
     <SettingsCard title={t("security.title")} description={t("security.intro")}>
-      {success && <p role="status" className="text-sm text-[var(--c-green3)] mb-3">{success}</p>}
-      {error && <p role="alert" className="text-sm text-danger mb-3">{error}</p>}
+      {success && (
+        <div className="px-5 pt-3 pb-1 sm:px-6">
+          <p
+            role="status"
+            className="flex items-center gap-2.5 rounded-xl border border-[var(--c-success-border)] bg-[var(--c-success-bg)] px-3.5 py-2.5 text-sm font-medium text-[var(--c-green3)]"
+          >
+            <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span>{success}</span>
+          </p>
+        </div>
+      )}
+      {error && (
+        <div className="px-5 pt-3 pb-1 sm:px-6">
+          <p
+            role="alert"
+            className="flex items-center gap-2.5 rounded-xl border border-[var(--c-danger-border)] bg-[var(--c-danger-bg)] px-3.5 py-2.5 text-sm font-medium text-[var(--c-danger)]"
+          >
+            <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span>{error}</span>
+          </p>
+        </div>
+      )}
 
       <SettingBlock>
         <h3 className="font-semibold mb-3">{t("security.passkeys")}</h3>
