@@ -4,6 +4,13 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.21.3] - 2026-10-12
+
+### Fixed
+- Security settings now confirm successful passkey changes and collapse the identity fields afterwards. A later change still requires a fresh one-use proof; opening the confirmation does not submit an empty password. Saved changes remain clearly reported when reloading the overview fails.
+- Passkey names and removal controls stay aligned, including long names on small screens. The labelled add-passkey form uses the available width and stacks on phones.
+- Authenticator setup is shown as pending until the confirmation code is accepted. All feedback is available in German, English and Japanese.
+
 ## [0.21.2] - 2026-10-12
 
 ### Fixed

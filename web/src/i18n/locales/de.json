@@ -345,6 +345,13 @@
   "security": {
     "title": "Kontosicherheit",
     "intro": "Melde dich mit einem Passkey an oder schütze dein Passwort mit einer Authenticator-App.",
+    "confirmIdentity": "Identität für eine Änderung bestätigen",
+    "authenticatorStarted": "Die Einrichtung wurde gestartet. Bestätige sie mit einem Authenticator-Code.",
+    "updated": "Die Sicherheitseinstellungen wurden aktualisiert.",
+    "passkeyAdded": "Der Passkey wurde hinzugefügt.",
+    "passkeyRemoved": "Der Passkey wurde entfernt.",
+    "removeNamed": "Passkey „{{name}}“ entfernen",
+    "refreshFailed": "Die Änderung wurde gespeichert. Die aktualisierte Übersicht konnte nicht geladen werden. Lade die Seite neu, bevor du weitere Änderungen vornimmst.",
     "reauth": "Bestätige deine Identität, bevor du die Sicherheitseinstellungen änderst.",
     "usePasskey": "Mit Passkey bestätigen",
     "password": "Aktuelles Passwort",

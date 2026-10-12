@@ -345,6 +345,13 @@
   "security": {
     "title": "Account security",
     "intro": "Sign in with a passkey or protect your password with an authenticator app.",
+    "confirmIdentity": "Confirm identity for a change",
+    "authenticatorStarted": "Setup has started. Confirm it with an authenticator code.",
+    "updated": "Your security settings have been updated.",
+    "passkeyAdded": "The passkey has been added.",
+    "passkeyRemoved": "The passkey has been removed.",
+    "removeNamed": "Remove passkey “{{name}}”",
+    "refreshFailed": "Your change was saved, but the updated overview could not be loaded. Reload the page before making further changes.",
     "reauth": "Confirm your identity before changing security settings.",
     "usePasskey": "Confirm with a passkey",
     "password": "Current password",
