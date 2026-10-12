@@ -112,70 +112,116 @@ export function Welcome({ onSubscribed }: { onSubscribed: () => void | Promise<v
   // An account whose plan does not include adding feeds gets the reason instead of the first steps.
   if (!syncAllowed) return <PlanNotice />;
 
+  function packEmoji(id: string): string {
+    switch (id) {
+      case "news": return "📰 ";
+      case "technology": return "💻 ";
+      case "apple": return "🍏 ";
+      case "science": return "🔬 ";
+      case "design": return "🎨 ";
+      default: return "";
+    }
+  }
+
   return (
-    <section className="card flex flex-col gap-6 p-5 sm:p-7" aria-labelledby="welcome-title">
+    <section className="card flex flex-col gap-6 p-5 sm:p-7 shadow-xs" aria-labelledby="welcome-title">
       <div className="flex flex-col gap-2">
-        <h2 id="welcome-title" className="text-xl font-semibold">{t("welcome.title")}</h2>
-        <p className="max-w-xl text-sm text-[var(--c-text-muted)]">{t("welcome.intro")}</p>
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-[var(--c-blue1)]/10 text-[var(--c-blue1)] flex items-center justify-center shrink-0">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 11a9 9 0 0 1 9 9" />
+              <path d="M4 4a16 16 0 0 1 16 16" />
+              <circle cx="5" cy="19" r="1" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <h2 id="welcome-title" className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--c-text)]" style={{ fontFamily: "Manrope, sans-serif" }}>
+              {t("welcome.title")}
+            </h2>
+            <p className="max-w-xl text-xs sm:text-sm text-[var(--c-text-muted)] mt-0.5 leading-relaxed">{t("welcome.intro")}</p>
+          </div>
+        </div>
       </div>
 
       {hostWelcome && <ExtensionMount name="onboarding" mount={hostWelcome.mount} />}
 
-      <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold">{t("welcome.addTitle")}</h3>
-        <AddFeedPanel compact folderOptions={[]} defaultFolderId={null} onClose={() => {}} onAdded={onAdded} />
-      </div>
-
-      {packs.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <div>
-            <h3 className="text-sm font-semibold">{t("welcome.packsTitle")}</h3>
-            <p className="text-sm text-[var(--c-text-muted)]">{t("welcome.packsHint")}</p>
-          </div>
-          <div className="flex flex-wrap gap-2" role="group" aria-label={t("welcome.packsTitle")}>
-            {packs.map((entry) => (
-              <button
-                key={entry.id}
-                type="button"
-                aria-pressed={openPack === entry.id}
-                disabled={busy}
-                onClick={() => { setOpenPack(openPack === entry.id ? null : entry.id); setUncheckedFeeds(new Set()); }}
-                className={`rounded-full border px-4 py-1.5 text-sm font-medium cursor-pointer transition-colors ${openPack === entry.id ? "border-[var(--c-text)] bg-[var(--c-surface-hover)]" : "border-[var(--c-border)] hover:bg-[var(--c-surface-hover)]"}`}
-              >
-                {entry.title}
-              </button>
-            ))}
-          </div>
-          {pack && (
-            <div className="flex flex-col gap-3 animate-fade-in">
-              {pack.description && <p className="text-sm text-[var(--c-text-muted)]">{pack.description}</p>}
-              <ul className="divide-y divide-[var(--c-border)] rounded-xl border border-[var(--c-border)]">
-                {pack.feeds.map((feed) => (
-                  <li key={feed.url}>
-                    <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5">
-                      <input type="checkbox" checked={!unchecked.has(feed.url)} disabled={busy} onChange={() => toggleFeed(feed.url)} />
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{feed.title}</span>
-                      {feed.lang && <span className="shrink-0 text-xs uppercase text-[var(--c-text-muted)]">{feed.lang}</span>}
-                    </label>
-                  </li>
-                ))}
-              </ul>
-              <button type="button" disabled={busy || chosen.length === 0} onClick={() => void subscribeChosen(pack)} className="btn-primary self-start">
-                {progress ? t("welcome.subscribingProgress", { done: progress.done, total: progress.total }) : t("welcome.subscribePack", { count: chosen.length })}
-              </button>
+      <div className="grid grid-cols-1 gap-4">
+        {/* Path 1: Starter Packs */}
+        {packs.length > 0 && (
+          <div className="rounded-2xl border border-[var(--c-border)]/80 bg-[var(--c-surface-hover)]/25 p-4 sm:p-5 flex flex-col gap-3.5">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-base" aria-hidden="true">✨</span>
+                <h3 className="text-sm sm:text-base font-bold text-[var(--c-text)]" style={{ fontFamily: "Manrope, sans-serif" }}>{t("welcome.packsTitle")}</h3>
+              </div>
+              <p className="text-xs sm:text-sm text-[var(--c-text-muted)] mt-0.5">{t("welcome.packsHint")}</p>
             </div>
-          )}
-        </div>
-      )}
+            <div className="flex flex-wrap gap-2" role="group" aria-label={t("welcome.packsTitle")}>
+              {packs.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  aria-pressed={openPack === entry.id}
+                  disabled={busy}
+                  onClick={() => { setOpenPack(openPack === entry.id ? null : entry.id); setUncheckedFeeds(new Set()); }}
+                  className={`rounded-full border px-4 py-1.5 text-xs sm:text-sm font-semibold cursor-pointer transition-all ${
+                    openPack === entry.id
+                      ? "border-[var(--c-blue1)] bg-[var(--c-blue1)] text-white shadow-xs"
+                      : "border-[var(--c-border)] bg-[var(--c-surface)] hover:border-[var(--c-blue3)] hover:bg-[var(--c-surface-hover)] text-[var(--c-text)]"
+                  }`}
+                >
+                  {packEmoji(entry.id)}{entry.title}
+                </button>
+              ))}
+            </div>
+            {pack && (
+              <div className="flex flex-col gap-3 pt-2 animate-fade-in border-t border-[var(--c-border)]/60">
+                {pack.description && <p className="text-xs sm:text-sm text-[var(--c-text-muted)]">{pack.description}</p>}
+                <ul className="divide-y divide-[var(--c-border)] rounded-xl border border-[var(--c-border)] bg-[var(--c-surface)]">
+                  {pack.feeds.map((feed) => (
+                    <li key={feed.url}>
+                      <label className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 hover:bg-[var(--c-surface-hover)]/50 transition-colors">
+                        <input type="checkbox" checked={!unchecked.has(feed.url)} disabled={busy} onChange={() => toggleFeed(feed.url)} className="rounded accent-[var(--c-blue1)]" />
+                        <span className="min-w-0 flex-1 truncate text-xs sm:text-sm font-medium">{feed.title}</span>
+                        {feed.lang && <span className="shrink-0 text-[0.625rem] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--c-surface-hover)] text-[var(--c-text-muted)]">{feed.lang}</span>}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                <button type="button" disabled={busy || chosen.length === 0} onClick={() => void subscribeChosen(pack)} className="btn-primary self-start text-xs sm:text-sm font-semibold px-4 py-2">
+                  {progress ? t("welcome.subscribingProgress", { done: progress.done, total: progress.total }) : t("welcome.subscribePack", { count: chosen.length })}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
-      <div className="flex flex-col gap-2 border-t border-[var(--c-border)] pt-4">
-        <h3 className="text-sm font-semibold">{t("welcome.importTitle")}</h3>
-        <p className="text-sm text-[var(--c-text-muted)]">{t("welcome.importHint")}</p>
-        <button type="button" disabled={busy} onClick={() => fileInput.current?.click()} className="btn-secondary inline-flex items-center gap-1.5 self-start">
-          <UploadIcon />
-          {importing ? t("feeds.importing") : t("feeds.importOpml")}
-        </button>
-        <input type="file" ref={fileInput} onChange={onFileSelected} accept=".opml,.xml,text/xml,application/xml" className="hidden" />
+        {/* Path 2: Add single Website/Feed */}
+        <div className="rounded-2xl border border-[var(--c-border)]/80 bg-[var(--c-surface-hover)]/25 p-4 sm:p-5 flex flex-col gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-base" aria-hidden="true">🌐</span>
+              <h3 className="text-sm sm:text-base font-bold text-[var(--c-text)]" style={{ fontFamily: "Manrope, sans-serif" }}>{t("welcome.addTitle")}</h3>
+            </div>
+          </div>
+          <AddFeedPanel compact folderOptions={[]} defaultFolderId={null} onClose={() => {}} onAdded={onAdded} />
+        </div>
+
+        {/* Path 3: Import OPML */}
+        <div className="rounded-2xl border border-[var(--c-border)]/80 bg-[var(--c-surface-hover)]/25 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-base" aria-hidden="true">📦</span>
+              <h3 className="text-sm sm:text-base font-bold text-[var(--c-text)]" style={{ fontFamily: "Manrope, sans-serif" }}>{t("welcome.importTitle")}</h3>
+            </div>
+            <p className="text-xs sm:text-sm text-[var(--c-text-muted)] mt-0.5">{t("welcome.importHint")}</p>
+          </div>
+          <button type="button" disabled={busy} onClick={() => fileInput.current?.click()} className="btn-secondary inline-flex items-center gap-2 shrink-0 text-xs sm:text-sm font-semibold px-4 py-2">
+            <UploadIcon />
+            {importing ? t("feeds.importing") : t("feeds.importOpml")}
+          </button>
+          <input type="file" ref={fileInput} onChange={onFileSelected} accept=".opml,.xml,text/xml,application/xml" className="hidden" />
+        </div>
       </div>
     </section>
   );

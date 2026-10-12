@@ -326,6 +326,10 @@ export function ItemsPage() {
   async function reloadFeeds(): Promise<Feed[] | null> {
     try {
       const [f, fol] = await Promise.all([api.listFeeds(), api.listFolders().catch(() => ({ folders: [] }))]);
+      if (f.length === 0 && (searchParams.has("folder") || searchParams.has("feed"))) {
+        setSearchParams({}, { replace: true });
+        setFilterScope("");
+      }
       setFeeds(f);
       setFolders(fol.folders);
       setFeedsLoaded(true);
@@ -792,7 +796,7 @@ export function ItemsPage() {
         </div>
       ) : loading && items.length === 0 ? (
         <LoadingSpinner size="lg" />
-      ) : items.length === 0 && plainView && feedsLoaded && feeds.length === 0 ? (
+      ) : items.length === 0 && feedsLoaded && feeds.length === 0 ? (
         <Welcome onSubscribed={reloadAfterSubscribing} />
       ) : items.length === 0 && waitingForFirstArticles ? (
         <div role="status" className="card flex flex-col items-center gap-3 px-6 py-12 text-center">
