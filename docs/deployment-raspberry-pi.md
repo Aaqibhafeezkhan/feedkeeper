@@ -64,7 +64,7 @@ SQLite writes often. A good USB SSD, or at least a card meant for continuous wri
 
 Create the folder first. The container runs as the user with ID 1000, so that user needs to be able to write to it: `sudo chown 1000:1000 /mnt/ssd/feedkeeper`.
 
-Back up regularly and copy the backup **off the Pi**:
+Back up regularly and copy the backup **off the Pi**, together with the value of `SESSION_SECRET` from your `.env`: it also protects the two-factor keys in the database (see [Account security](account-security.md)):
 
 ```bash
 docker compose exec feedkeeper node server/dist/feedkeeper.js backup /app/data/feedkeeper-backup.sqlite

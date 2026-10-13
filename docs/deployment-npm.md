@@ -15,7 +15,7 @@ npx feedkeeper
 
 Open <http://localhost:3000> and create the first account in the browser. Press Ctrl+C to stop.
 
-Everything lives in one folder, `~/.feedkeeper` by default: the SQLite database, the archive of saved articles, the image cache and a session secret that is generated on the first start (readable only by you). Keep that folder with your backups. Deleting `session-secret` only signs people out.
+Everything lives in one folder, `~/.feedkeeper` by default: the SQLite database, the archive of saved articles, the image cache and a session secret that is generated on the first start (readable only by you). Keep that folder with your backups. The secret also protects the two-factor keys in the database: if it is lost, people who use an authenticator app have to sign in with a recovery code and set it up again (see [Account security](account-security.md)).
 
 ## Options
 

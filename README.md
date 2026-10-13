@@ -58,7 +58,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Changing `SESSION_SECRET` signs out active browser sessions; feeds and accounts stay in the database. Want to build the image yourself? Clone the repository and run `docker compose -f compose.yaml -f compose.build.yaml up -d --build`.
+Changing `SESSION_SECRET` signs out active browser sessions and makes stored two-factor keys unreadable (see [Account security](docs/account-security.md)); feeds and accounts stay in the database. Want to build the image yourself? Clone the repository and run `docker compose -f compose.yaml -f compose.build.yaml up -d --build`.
 
 Started without a `SESSION_SECRET` (for example from one of the templates below), the image creates one on the first start and keeps it in the data volume.
 
@@ -145,7 +145,7 @@ Create a consistent SQLite backup while FeedKeeper is running:
 npm run db:backup -- /safe/location/feedkeeper.sqlite
 ```
 
-Without Docker, run `npm run build` once before using the backup commands. The command refuses to overwrite an existing backup and verifies its integrity. Images of saved articles live in an `archive` folder next to the database (configurable with `ARCHIVE_PATH`); the backup copies them to `<backup>.archive` and restore puts them back. Keep the backup outside the application directory and copy it to another machine or storage device.
+Without Docker, run `npm run build` once before using the backup commands. The command refuses to overwrite an existing backup and verifies its integrity. Images of saved articles live in an `archive` folder next to the database (configurable with `ARCHIVE_PATH`); the backup copies them to `<backup>.archive` and restore puts them back. A backup holds the database and the archive, not `SESSION_SECRET`: keep the secret with your backups, because it also protects the two-factor keys in the database (see [Account security](docs/account-security.md)). Keep the backup outside the application directory and copy it to another machine or storage device.
 
 With Docker Compose, create the backup in the mounted data volume and copy it to the host:
 
