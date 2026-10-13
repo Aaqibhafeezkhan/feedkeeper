@@ -4,6 +4,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-10-13
+
 ### Changed
 - The shortlist of edition candidates (`get_edition_candidates` and agents that curate an edition) gives every source its fair share instead of being filled with whatever is freshest. A source can take at most the shortlist size divided by the number of sources, rotated by what the last editions already showed, and quiet sources keep all their articles. A single source can still fill the whole list. The automatic edition is unchanged.
 
@@ -398,7 +400,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.25.1...HEAD
+[0.25.1]: https://github.com/visualfusion/feedkeeper/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/visualfusion/feedkeeper/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/visualfusion/feedkeeper/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/visualfusion/feedkeeper/compare/v0.23.1...v0.24.0
