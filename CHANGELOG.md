@@ -4,6 +4,25 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-13
+
+### Added
+- A `feedkeeper` command that runs the server from npm: `npx feedkeeper`, or installed globally. It keeps the database, the archive and a generated session secret in one data folder (`~/.feedkeeper` by default) and takes `--port`, `--public-url` and `--data-dir`. `feedkeeper backup <file>` and `feedkeeper restore <file> --force` run the backup tool with the same settings. `npm run pack:npm` assembles the package.
+- Without a configured `SESSION_SECRET`, the Docker image and the `feedkeeper` command create one on the first start and keep it in the data folder. A secret from the environment is never replaced.
+- Templates for Unraid, CasaOS and Portainer in `deploy/`, described in [Running FeedKeeper on Unraid, CasaOS and Portainer](docs/deployment-homelab.md).
+- Guides for [Raspberry Pi](docs/deployment-raspberry-pi.md) and for [Node.js without Docker](docs/deployment-npm.md), and an overview of all ways to run FeedKeeper in the README.
+
+### Changed
+- The Docker image starts through the `feedkeeper` command. The environment variables, the port and the data volume are unchanged.
+- The README's Docker backup and restore commands use `feedkeeper backup` and `feedkeeper restore`, which also work when the secret was generated rather than configured.
+
+### Fixed
+- Restoring a backup from a location nothing can be written to, such as a single file mounted into a container, failed with "attempt to write a readonly database".
+
+### Upgrade notes
+- No database migration or configuration change is needed. Installations with a `SESSION_SECRET` keep using it. Pull the new image and restart.
+- A container that overrides the image's command with `node server/dist/server.js` keeps working as before; only the default command changed.
+
 ## [0.22.1] - 2026-10-13
 
 ### Added
@@ -335,7 +354,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.22.1...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/visualfusion/feedkeeper/compare/v0.22.1...v0.23.0
 [0.22.1]: https://github.com/visualfusion/feedkeeper/compare/v0.22.0...v0.22.1
 [0.21.0]: https://github.com/visualfusion/feedkeeper/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/visualfusion/feedkeeper/compare/v0.19.0...v0.20.0
