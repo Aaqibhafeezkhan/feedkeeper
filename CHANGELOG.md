@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+- Opening FeedKeeper over plain `http://` (for example `http://localhost:3000` or an address in the home network) in Safari showed a blank page. The server now sends `upgrade-insecure-requests` and HSTS only when `PUBLIC_URL` is an `https://` address.
+
 ### Changed
 - The connected clients under Settings → MCP are now called AI assistants instead of apps, so they are not confused with the FeedKeeper apps.
 

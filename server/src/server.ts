@@ -45,6 +45,9 @@ if (config.clientIpHeader && !Array.isArray(config.trustProxy)) {
 // Before every rate limiter, so limits count the CDN's client rather than its edge.
 app.use(clientAddressFromHeader(config.clientIpHeader, config.trustProxy));
 
+// Upgrading every request to https is only right when the instance is served over https. On a plain http address
+// (localhost, a home network) Safari would upgrade scripts and images to an https origin that does not exist.
+const servedOverHttps = new URL(config.publicUrl).protocol === "https:";
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -52,8 +55,10 @@ app.use(
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "script-src": ["'self'"],
         "img-src": ["'self'", "data:", "https:", "http:"],
+        "upgrade-insecure-requests": servedOverHttps ? [] : null,
       },
     },
+    strictTransportSecurity: servedOverHttps,
   }),
 );
 // Send X-Robots-Tag to ensure all HTTP endpoints disallow indexing even outside HTML
