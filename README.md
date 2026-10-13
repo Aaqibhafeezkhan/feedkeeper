@@ -51,6 +51,8 @@ docker compose up -d
 
 Open `http://localhost:3000` to complete the initial setup via the web onboarding screen. For a public domain, also add `PUBLIC_URL=https://your.domain` to `.env` (see [`.env.example`](.env.example) for all options).
 
+Just want to look around? `npx feedkeeper` starts it without Docker (it needs a supported Node.js, see [Running FeedKeeper with Node.js](docs/deployment-npm.md)); the data stays in `~/.feedkeeper`.
+
 To update, pull the new image and restart:
 
 ```bash
