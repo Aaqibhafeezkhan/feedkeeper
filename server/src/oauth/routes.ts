@@ -6,7 +6,7 @@ import { z } from "zod";
 import { config } from "../config.js";
 import { getUserCapabilities, hasUserCapability } from "../auth/capabilities.js";
 import { hasTotp, securityVersion, sessionIsSecure } from "../auth/security.js";
-import { verifyPassword } from "../auth/password.js";
+import { verifyPasswordOrDummy } from "../auth/password.js";
 import { findUserByEmail, findUserById } from "../auth/users.js";
 import type { TokenScope } from "../auth/tokens.js";
 import { ISSUER, MCP_RESOURCE } from "./constants.js";
@@ -136,7 +136,13 @@ function basicClientId(req: Request): string | null {
   const header = req.headers.authorization;
   if (!header?.startsWith("Basic ")) return null;
   const [id] = Buffer.from(header.slice(6), "base64").toString("utf8").split(":");
-  return id ? decodeURIComponent(id) : null;
+  if (!id) return null;
+  try {
+    return decodeURIComponent(id);
+  } catch {
+    // A malformed escape is a client that does not exist, not a server error.
+    return null;
+  }
 }
 
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
@@ -366,7 +372,8 @@ oauthAuthorizeRouter.post("/oauth/authorize/login", sameOriginOnly, loginLimiter
     return;
   }
   const user = findUserByEmail(parsed.data.email);
-  if (!user || !verifyPassword(parsed.data.password, user.password_hash)) {
+  const passwordMatches = verifyPasswordOrDummy(parsed.data.password, user?.password_hash);
+  if (!user || !passwordMatches) {
     page(res, 401, renderLogin(req, { clientName: client.client_name, returnTo, failed: true }));
     return;
   }
