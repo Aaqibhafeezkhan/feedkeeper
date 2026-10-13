@@ -60,6 +60,17 @@ docker compose up -d
 
 Changing `SESSION_SECRET` signs out active browser sessions; feeds and accounts stay in the database. Want to build the image yourself? Clone the repository and run `docker compose -f compose.yaml -f compose.build.yaml up -d --build`.
 
+Started without a `SESSION_SECRET` (for example from one of the templates below), the image creates one on the first start and keeps it in the data volume.
+
+### Other ways to run it
+
+| Where | How |
+|---|---|
+| **Raspberry Pi** | [Step by step with Docker](docs/deployment-raspberry-pi.md), including HTTPS and backups. |
+| **Unraid, CasaOS, Portainer** | [Ready-made templates](docs/deployment-homelab.md) for the home-lab interfaces. |
+| **Node.js, no Docker** | `npx feedkeeper` runs it with no clone and no build, see [Running FeedKeeper with Node.js](docs/deployment-npm.md). |
+| **Uberspace or any SSH host** | [Deploying to Uberspace](docs/deployment-uberspace.md). |
+
 ## Features
 
 - **Categories and feed ordering** — group subscriptions into categories, search and filter the feed list, rename categories in place, and reorder feeds by dragging.
@@ -139,7 +150,7 @@ Without Docker, run `npm run build` once before using the backup commands. The c
 With Docker Compose, create the backup in the mounted data volume and copy it to the host:
 
 ```bash
-docker compose exec feedkeeper npm run db:backup -- /app/data/feedkeeper-backup.sqlite
+docker compose exec feedkeeper node server/dist/feedkeeper.js backup /app/data/feedkeeper-backup.sqlite
 docker compose cp feedkeeper:/app/data/feedkeeper-backup.sqlite ./feedkeeper-backup.sqlite
 # only present if you have saved articles with images:
 docker compose cp feedkeeper:/app/data/feedkeeper-backup.sqlite.archive ./feedkeeper-backup.sqlite.archive
@@ -157,7 +168,7 @@ For Docker Compose, stop the service and run the restore command in a one-off co
 
 ```bash
 docker compose stop feedkeeper
-docker compose run --rm --no-deps -v "$PWD/feedkeeper-backup.sqlite:/restore.sqlite:ro" feedkeeper npm run db:restore -- /restore.sqlite --force
+docker compose run --rm --no-deps -v "$PWD/feedkeeper-backup.sqlite:/restore.sqlite:ro" feedkeeper node server/dist/feedkeeper.js restore /restore.sqlite --force
 docker compose up -d feedkeeper
 ```
 
