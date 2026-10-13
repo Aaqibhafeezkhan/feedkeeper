@@ -30,7 +30,8 @@
     "db:restore": "npm run db:restore --workspace server --",
     "lint": "npm run lint --workspace server && npm run lint --workspace web && eslint .",
     "test": "npm run test --workspace server && npm run test --workspace web",
-    "security:recover": "npm run security:recover --workspace server --"
+    "security:recover": "npm run security:recover --workspace server --",
+    "pack:npm": "node scripts/pack-npm.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
