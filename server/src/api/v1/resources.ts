@@ -1,3 +1,4 @@
+import { sendArticleImage } from "../imageResponse.js";
 import { enqueueArticleContents } from "../../feeds/fullTextQueue.js";
 import { Router, type Request } from "express";
 import rateLimit from "express-rate-limit";
@@ -671,8 +672,7 @@ resourcesRouter.get("/items/:id/image", imageLimiter, async (req, res) => {
     const image = await fetchItemImage(req.user!.id, Number(req.params.id), src);
     if (image === "forbidden") return void res.status(404).json({ error: "not_found" });
     if (image === "unsupported") return void res.status(415).json({ error: "unsupported_image" });
-    res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
-    res.type(image.mime).send(image.buffer);
+    sendArticleImage(req, res, image);
   } catch (error) {
     if (error instanceof ImageCacheBusyError) {
       res.setHeader("Retry-After", "1");

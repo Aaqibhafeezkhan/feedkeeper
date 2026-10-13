@@ -1,3 +1,4 @@
+import { sendArticleImage } from "./imageResponse.js";
 import { Router, type Request } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -22,7 +23,7 @@ export const FULL_TEXT_STATUS: Record<FullTextError, number> = {
   full_text_disabled: 409,
   consent_wall: 422,
   could_not_extract_content: 422,
-  extraction_failed: 502,
+  extraction_failed: 502, queue_full: 503, source_busy: 503,
 };
 
 export const itemsRouter = Router();
@@ -77,8 +78,7 @@ itemsRouter.get("/:itemId/image", imageLimiter, async (req, res) => {
     } else if (image === "unsupported") {
       res.status(415).json({ error: "unsupported_image" });
     } else {
-      res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
-      res.type(image.mime).send(image.buffer);
+      sendArticleImage(req, res, image);
     }
   } catch (error) {
     if (error instanceof ImageCacheBusyError) {

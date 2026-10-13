@@ -297,7 +297,7 @@ export function itemImageUrls(item: ImageSource): string[] {
 }
 
 function proxiedImageUrl(origin: string, itemId: number, imageUrl: string, apiBase = "/api"): string {
-  return `${origin.replace(/\/$/, "")}${apiBase}/items/${itemId}/image?src=${encodeURIComponent(imageUrl).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)}`;
+  return `${origin.replace(/\/$/, "")}${apiBase}/items/${itemId}/image?src=${encodeURIComponent(imageUrl).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)}&v=2`;
 }
 
 /**
@@ -321,7 +321,7 @@ export function withProxiedImages<T extends ImageSource & { id: number }>(items:
 }
 
 /** Download one of an article's own images for the offline copy, or null when it is not one of them. */
-export async function fetchItemImage(userId: number, itemId: number, imageUrl: string): Promise<{ buffer: Buffer; mime: string } | "forbidden" | "unsupported"> {
+export async function fetchItemImage(userId: number, itemId: number, imageUrl: string): Promise<CachedImage | "forbidden" | "unsupported"> {
   const item = findItemForUser(userId, itemId);
   if (!item || !itemImageUrls(item).includes(imageUrl)) return "forbidden";
   const image = await sharedImage(item, imageUrl);

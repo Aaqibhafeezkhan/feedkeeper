@@ -468,6 +468,7 @@ paths:
     post:
       tags: [Articles]
       summary: Fetch and cache the full article
+      description: Concurrent callers share a durable article job. At most 64 callers wait, for up to 30 seconds. A caller timeout leaves background work intact; consume later results through ordinary item reads or sync.
       parameters:
         - { $ref: "#/components/parameters/Id" }
         - { name: force, in: query, schema: { type: boolean } }
@@ -476,17 +477,21 @@ paths:
         "403": { $ref: "#/components/responses/CapabilityDenied" }
         "200": { description: The article with `fullTextHtml`, content: { application/json: { schema: { $ref: "#/components/schemas/Item" } } } }
         "409": { description: full_text_disabled for this subscription }
-        "504": { description: Publisher request timed out }
+        "503": { description: queue_full or source_busy; wait before trying again }
+        "504": { description: Extraction or consumer waiting deadline exceeded; durable work may continue }
         "422": { description: consent_wall, paywall, bot_blocked, partial or could_not_extract_content }
   /items/{id}/image:
     get:
       tags: [Images]
       summary: An image the article shows, through this server
+      description: Normal images use a private cache lifetime of at most six hours and a content ETag. Archive images have a separate immutable route.
       parameters:
+        - { name: If-None-Match, in: header, schema: { type: string } }
         - { $ref: "#/components/parameters/Id" }
         - { name: src, in: query, required: true, schema: { type: string } }
       responses:
         "200": { description: A raster image, content: { "image/*": { schema: { type: string, format: binary } } } }
+        "304": { description: Image content is unchanged }
         "404": { $ref: "#/components/responses/NotFound" }
         "415": { description: Not a supported image }
         "502": { description: Image source unavailable or download timed out }

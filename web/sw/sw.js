@@ -15,7 +15,8 @@ const MAX_CACHED_IMAGES = 3000;
 // (tokens, users, settings, mutations) always goes to the server.
 const READABLE_API = [/^\/api\/onboarding\/status$/, /^\/api\/config$/, /^\/api\/auth\/me$/, /^\/api\/feeds$/, /^\/api\/folders$/, /^\/api\/items$/, /^\/api\/filters\/muted$/];
 const FEED_ICON = /^\/api\/feeds\/\d+\/icon$/;
-const IMMUTABLE_API = [/^\/api\/archive\/images\/\d+$/, /^\/api\/items\/\d+\/image$/, /^\/api\/auth\/me\/avatar$/];
+const MUTABLE_IMAGE = /^\/api\/items\/\d+\/image$/;
+const IMMUTABLE_API = [/^\/api\/archive\/images\/\d+$/, /^\/api\/auth\/me\/avatar$/];
 // Files next to index.html (theme script, manifest, icons) are the only other thing served from the cache. Any other
 // path answers per request and per signed-in user, so a stored copy could show one account another's data.
 const STATIC_FILE = /^\/[^/]+\.(?:js|css|svg|png|ico|webmanifest|txt|woff2?)$/;
@@ -56,6 +57,8 @@ self.addEventListener("fetch", (event) => {
     if (url.searchParams.has("offline")) return;
     if (FEED_ICON.test(url.pathname)) {
       event.respondWith(staleWhileRevalidate(API_CACHE, request));
+    } else if (MUTABLE_IMAGE.test(url.pathname)) {
+      event.respondWith(mutableImage(request));
     } else if (IMMUTABLE_API.some((pattern) => pattern.test(url.pathname))) {
       event.respondWith(cacheFirst(API_CACHE, request, MAX_CACHED_IMAGES));
     } else if (READABLE_API.some((pattern) => pattern.test(url.pathname))) {
@@ -112,6 +115,31 @@ async function cacheFirst(cacheName, request, limit = 0) {
     if (limit) await trim(cache, (key) => /\/api\/(archive\/images\/|items\/\d+\/image)/.test(key.url), limit);
   }
   return response;
+}
+
+async function mutableImage(request) {
+  const cache = await caches.open(API_CACHE);
+  const cached = await cache.match(request, MATCH);
+  const date = cached && Date.parse(cached.headers.get("date") ?? "");
+  const maxAge = Number(cached?.headers.get("cache-control")?.match(/max-age=(\d+)/)?.[1] ?? 0);
+  // Old immutable proxy responses must also expire at the new six-hour boundary.
+  if (cached && !cached.headers.get("cache-control")?.includes("no-store") && Date.now() - date < Math.min(maxAge, 21600) * 1000) return cached;
+  try {
+    const headers = new Headers(request.headers);
+    if (cached?.headers.get("etag")) headers.set("If-None-Match", cached.headers.get("etag"));
+    let response = await withTimeout(fetch(new Request(request, { headers, cache: "no-cache" })), NETWORK_TIMEOUT_MS);
+    if (response.status === 304 && cached) {
+      const refreshed = new Headers(cached.headers);
+      for (const name of ["date", "etag", "cache-control"]) if (response.headers.has(name)) refreshed.set(name, response.headers.get(name));
+      refreshed.set("date", response.headers.get("date") ?? new Date().toUTCString());
+      response = new Response(await cached.arrayBuffer(), { status: 200, headers: refreshed });
+    }
+    if (response.ok) {
+      if (response.headers.get("cache-control")?.includes("no-store")) await cache.delete(request);
+      else { await cache.put(request, response.clone()); await trim(cache, key => /\/api\/(archive\/images\/|items\/\d+\/image)/.test(key.url), MAX_CACHED_IMAGES); }
+    }
+    return response; // An online denial must never fall back to the previous account's bytes.
+  } catch { return cached ?? Response.error(); }
 }
 
 async function networkFirst(cacheName, request, limit) {

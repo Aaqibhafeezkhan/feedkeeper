@@ -49,10 +49,14 @@ async function downloadImages(cache: Cache, urls: string[], cancelled: () => boo
   const queue = urls.slice(0, MAX_IMAGES);
   const worker = async () => {
     for (let url = queue.shift(); url && !cancelled(); url = queue.shift()) {
-      if (await cache.match(url, { ignoreVary: true })) continue;
+      const cached = await cache.match(url, { ignoreVary: true });
+      const immutable = /\/api\/archive\/images\/\d+/.test(new URL(url).pathname);
+      const age = Number(cached?.headers.get("cache-control")?.match(/max-age=(\d+)/)?.[1] ?? 0);
+      const fresh = cached && Date.now() - Date.parse(cached.headers.get("date") ?? "") < Math.min(age, 21600) * 1000;
+      if (cached && (immutable || fresh)) continue;
       try {
         const response = await fetch(url, { credentials: "include" });
-        if (response.ok && !cancelled() && !(await cache.match(url, { ignoreVary: true }))) await cache.put(url, response);
+        if (response.ok && !cancelled()) await cache.put(url, response);
       } catch {
         // The image stays online-only; the next sync tries again.
       }

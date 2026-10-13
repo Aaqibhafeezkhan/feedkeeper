@@ -4,6 +4,18 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+- Full-text preparation continuously fills available workers. Reader requests and background work share article jobs, with configurable concurrency, host limits and bounded waiting.
+- Normal proxied article images expire after at most six hours and support conditional requests. Archived images keep their fixed version.
+
+### Fixed
+- Broad relevance searches compute article rankings once, keeping the API responsive while feeds are updating.
+- Slow sources and retry delays no longer hold up unrelated full-text jobs. HTTP 429/503 responses respect `Retry-After`, and interrupted jobs resume after shutdown.
+- The web offline cache refreshes ordinary article images instead of keeping them indefinitely.
+
+### Upgrade notes
+- Migration 0033 extends the existing full-text queue. Run one process per database and stop the old process before upgrading. See [full-text fetching](docs/full-text.md) for settings and rollback.
+
 ## [0.23.1] - 2026-10-13
 
 ### Fixed

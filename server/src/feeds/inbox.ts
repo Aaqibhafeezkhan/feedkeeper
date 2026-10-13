@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../db/index.js";
+import { hasUserCapability } from "../auth/capabilities.js";
+import { configureFullTextPool, deferFullTextHost } from "./fullTextQueue.js";
 import { extractArticle } from "./extractor.js";
 import { assertPublicHttpUrl, normalizeUrlCandidate } from "./ssrfGuard.js";
 import { articleImageUrls, scheduleArchive } from "./archive.js";
@@ -77,9 +79,11 @@ export async function saveToInbox(
     await assertPublicHttpUrl(normalized);
     targetUrl = normalized;
 
-    if (!contentHtml) {
+    if (!contentHtml && hasUserCapability(userId, "fulltext")) {
       try {
-        const extracted = await extractArticle(targetUrl);
+        configureFullTextPool();
+        const extracted = await extractArticle(targetUrl, undefined, 5, () => hasUserCapability(userId, "fulltext"));
+        if (extracted.status === "throttled") deferFullTextHost(extracted.host, extracted.retryAt);
         if (extracted.status === "ok" || extracted.status === "partial") {
           extractionStatus = extracted.status === "ok" ? "ready" : "partial";
           extractedPartial = extracted.status === "partial";
@@ -92,7 +96,7 @@ export async function saveToInbox(
           imageUrl = images[0] ?? null;
         }
       } catch (err) {
-        console.warn(`[inbox] Article extraction failed for ${targetUrl}:`, err);
+        console.warn(JSON.stringify({ event: "inbox_extraction_failed", error: err instanceof Error ? err.name : "unknown" }));
       }
     }
   }
