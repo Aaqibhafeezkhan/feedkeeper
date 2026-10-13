@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+- The shortlist of edition candidates (`get_edition_candidates` and agents that curate an edition) gives every source its fair share instead of being filled with whatever is freshest. A source can take at most the shortlist size divided by the number of sources, rotated by what the last editions already showed, and quiet sources keep all their articles. A single source can still fill the whole list. The automatic edition is unchanged.
+
 ## [0.25.0] - 2026-10-13
 
 ### Changed

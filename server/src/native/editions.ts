@@ -171,11 +171,78 @@ export function deleteEdition(userId: number): boolean {
   return existed;
 }
 
+/** The automatic edition looks at every candidate; smaller limits are shortlists for an agent or the curator. */
+const AUTOMATIC_EDITION_LIMIT = 4000;
+
+/** How often each feed appeared in the editions of the last 72 hours, so a feed that was shown a lot waits its turn. */
+function recentSourceUse(userId: number, itemIds: number[]): Map<number, number> {
+  const use = new Map<number, number>();
+  for (let start = 0; start < itemIds.length; start += 500) {
+    const chunk = itemIds.slice(start, start + 500);
+    const rows = db.prepare<unknown[], { feed_id: number }>(
+      `SELECT i.feed_id FROM items i JOIN subscriptions s ON s.feed_id = i.feed_id AND s.user_id = ?
+       WHERE i.id IN (${chunk.map(() => "?").join(",")})`,
+    ).all(userId, ...chunk);
+    for (const row of rows) use.set(row.feed_id, (use.get(row.feed_id) ?? 0) + 1);
+  }
+  return use;
+}
+
+/**
+ * Takes candidates round by round, one per source: volume says nothing about relevance, so a feed with three
+ * articles a week competes on equal terms with one that posts eighty. Sources that were shown less lately (and are
+ * not yet in the head of the list) go first within a round; inside a source the better scored article goes first,
+ * and an article offered before only after the new ones.
+ */
+export function takeFairly(rest: EditionCandidate[], head: EditionCandidate[], recentUse: Map<number, number>): EditionCandidate[] {
+  const queues = new Map<number, EditionCandidate[]>();
+  for (const item of [...rest].sort((a, b) =>
+    Number(a.previouslySelected) - Number(b.previouslySelected) || b.score - a.score || b.id - a.id)) {
+    const queue = queues.get(item.subscriptionId);
+    if (queue) queue.push(item); else queues.set(item.subscriptionId, [item]);
+  }
+  const inHead = new Map<number, number>();
+  for (const item of head) inHead.set(item.subscriptionId, (inHead.get(item.subscriptionId) ?? 0) + 1);
+  const order = [...queues.keys()].sort((a, b) =>
+    (inHead.get(a) ?? 0) - (inHead.get(b) ?? 0) || (recentUse.get(a) ?? 0) - (recentUse.get(b) ?? 0) ||
+    queues.get(b)![0].score - queues.get(a)![0].score || a - b);
+  const result: EditionCandidate[] = [];
+  for (let round = 0; result.length < rest.length; round++) {
+    for (const source of order) {
+      const item = queues.get(source)![round];
+      if (item) result.push(item);
+    }
+  }
+  return result;
+}
+
+/**
+ * A source may fill at most its fair share of the shortlist (the size divided by the number of sources), however
+ * much it publishes; the surplus of busy feeds is left out instead of crowding out the rest. A shortlist that would
+ * become too small to choose from is topped up in the same fair order, so no account ends up with an empty one.
+ */
+export function fairShortlist(head: EditionCandidate[], fairOrder: EditionCandidate[], limit: number, sources: number): EditionCandidate[] {
+  const share = Math.max(2, Math.ceil(limit / Math.max(1, sources)));
+  const used = new Map<number, number>();
+  const kept: EditionCandidate[] = [];
+  const surplus: EditionCandidate[] = [];
+  for (const item of [...head, ...fairOrder]) {
+    const count = used.get(item.subscriptionId) ?? 0;
+    if (count < share) {
+      used.set(item.subscriptionId, count + 1);
+      kept.push(item);
+    } else surplus.push(item);
+  }
+  const minimum = Math.min(limit, 24);
+  return [...kept, ...surplus.slice(0, Math.max(0, minimum - kept.length))].slice(0, limit);
+}
+
 export function editionCandidates(userId: number, now = new Date(), limit = 200): EditionCandidate[] {
   const prefs = getNativePreferences(userId);
-  const previous = new Set(db.prepare<[number, string], { item_ids: string }>(
+  const previousItemIds = db.prepare<[number, string], { item_ids: string }>(
     "SELECT item_ids FROM edition_history WHERE user_id = ? AND created_at >= ?",
-  ).all(userId, new Date(now.getTime() - 72 * 3_600_000).toISOString()).flatMap((row) => JSON.parse(row.item_ids) as number[]));
+  ).all(userId, new Date(now.getTime() - 72 * 3_600_000).toISOString()).flatMap((row) => JSON.parse(row.item_ids) as number[]);
+  const previous = new Set(previousItemIds);
   // Fetch bounded candidates per source, so a busy feed cannot hide the others.
   const rows = db.prepare<[number, number, number, string, string], {
     id: number; feed_id: number; folder_id: number | null; title: string | null; link: string | null;
@@ -202,11 +269,13 @@ export function editionCandidates(userId: number, now = new Date(), limit = 200)
       score: Math.pow(0.5, Math.max(0, now.getTime() - Date.parse(row.published)) / (18 * 3_600_000)) *
         (row.folder_id !== null && prefs.preferredFolderIds.includes(row.folder_id) ? 1.4 : 1),
     }));
-  // Candidate requests expose a diversified shortlist rather than only the busiest source.
-  if (limit < scored.length) {
+  // Candidate requests expose a shortlist in which every source has a fair chance, not only the busiest one.
+  if (limit < AUTOMATIC_EDITION_LIMIT) {
     const sorted = selectEdition(scored, { ...prefs, editionSize: Math.min(limit, 24), readingMinutes: null });
     const selected = new Set(sorted.map((item) => item.id));
-    return [...sorted, ...scored.filter((item) => !selected.has(item.id)).sort((a, b) => b.score - a.score || b.id - a.id)].slice(0, limit);
+    const rest = scored.filter((item) => !selected.has(item.id));
+    return fairShortlist(sorted, takeFairly(rest, sorted, recentSourceUse(userId, previousItemIds)), limit,
+      new Set(scored.map((item) => item.subscriptionId)).size);
   }
   return scored.sort((a, b) => b.score - a.score || b.id - a.id);
 }
@@ -235,7 +304,7 @@ export function generateEdition(userId: number, input: { requestId?: string; exp
     if (row?.status === "active" && !state.edition) {
       db.prepare("UPDATE editions SET status = 'expired', revision = revision + 1, updated_at = ? WHERE user_id = ?").run(now.toISOString(), userId);
     }
-    const chosen = selectEdition(editionCandidates(userId, now, 4000), prefs);
+    const chosen = selectEdition(editionCandidates(userId, now, AUTOMATIC_EDITION_LIMIT), prefs);
     if (!chosen.length) return state.edition;
     if (state.edition && JSON.stringify(state.edition.itemIds) === JSON.stringify(chosen.map((item) => item.id))) return state.edition;
     return writeEdition(userId, chosen.map((item) => item.id), "automatic", nextEditionBoundary(now, prefs.timeZone), now);
