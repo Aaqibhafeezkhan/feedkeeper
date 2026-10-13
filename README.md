@@ -21,9 +21,6 @@ Beyond a clean web reader, FeedKeeper includes a native, authenticated **[Model 
 
 It is multi-user by default, with isolated accounts, personal access tokens, and a trilingual interface (English, German, and Japanese).
 
-> [!TIP]
-> **Prefer a managed solution?** If you want a turnkey RSS reader without hosting, maintaining updates, and managing backups yourself, [FeedKeeper Cloud](https://feedkeeper.cloud) provides a fully managed hosted service with managed AI curation and Claude MCP integration.
-
 <p align="center">
   <img src="docs/screenshots/iphone.png" alt="FeedKeeper on iPhone: newspaper view with category filter and tab bar" width="170" />
   &nbsp;&nbsp;&nbsp;
@@ -191,6 +188,10 @@ npm run build
 npm run start
 ```
 
+## Hosted option
+
+If you would rather not operate a server, [FeedKeeper Cloud](https://feedkeeper.cloud) is a hosted edition run by the same maintainers. This repository stays MIT-licensed and fully self-hostable.
+
 ## Connecting an MCP client
 
 **With OAuth (ChatGPT, Claude and other connectors).** Add `https://<your-domain>/mcp` as a remote MCP server or custom connector. The client discovers the sign-in on its own: you log in to FeedKeeper, choose **read only** or **read and write** on the consent page, and the client gets a short-lived token (1 hour, refreshed for 30 days). Connected apps are listed under **Settings → MCP** and can be disconnected at any time. `OAUTH_ALLOWED_REDIRECT_HOSTS` can limit which hosts may register. Set `PUBLIC_URL` to the address the client reaches the server at; see [docs/design/mcp-oauth.md](docs/design/mcp-oauth.md).
@@ -292,7 +293,7 @@ No database migration is needed. To roll back, stop the application and return t
 
 ## Extending
 
-Operators and products built on FeedKeeper can add settings sections, footer links and a custom sign-in to the web app through `window.feedkeeperExtensions`, without patching the code. See [Extending the web app](docs/extending-the-web-app.md).
+Operators and products built on FeedKeeper can add settings sections, footer links, a page title and a custom sign-in to the web app through `window.feedkeeperExtensions`, without patching the code. FeedKeeper Cloud, the hosted edition, uses it for its membership settings. See [Extending the web app](docs/extending-the-web-app.md).
 
 ## Tech stack
 
