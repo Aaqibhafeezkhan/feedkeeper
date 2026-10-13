@@ -4,6 +4,19 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-10-13
+
+### Fixed
+- Articles whose feed gave no readable publish date (a localised weekday name, "gestern", an empty value) were stored with that text. It sorted above every dated article, so they stayed at the top of the list, and they never aged. Articles with a placeholder date such as 1970-01-01 were removed by the age cleanup the night after they arrived. Both now use the time FeedKeeper stored the article, and a migration repairs entries that are already stored.
+- Articles without a publish date no longer sort below every dated article in lists and search.
+- Changing the password signs out every other browser. Access tokens, paired devices and connected apps keep working.
+- Signing in with an address that has no account takes as long as a wrong password, so the response time no longer shows which addresses are registered.
+- A search that mixes Latin words with Japanese, Cyrillic or Greek words only searched for the Latin ones. Every word has to match now.
+- A malformed client id in the credentials of an OAuth token request is answered as an unknown client instead of a server error.
+
+### Changed
+- The documentation says that `SESSION_SECRET` also protects the two-factor keys and belongs with the backups.
+
 ## [0.23.0] - 2026-10-13
 
 ### Added
@@ -354,7 +367,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.23.1...HEAD
+[0.23.1]: https://github.com/visualfusion/feedkeeper/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/visualfusion/feedkeeper/compare/v0.22.1...v0.23.0
 [0.22.1]: https://github.com/visualfusion/feedkeeper/compare/v0.22.0...v0.22.1
 [0.21.0]: https://github.com/visualfusion/feedkeeper/compare/v0.20.0...v0.21.0
