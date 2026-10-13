@@ -135,7 +135,7 @@ export function runCleanup(custom?: Partial<RetentionSettings>): CleanupResult {
              WHERE s.feed_id = i.feed_id
                AND NOT EXISTS (SELECT 1 FROM item_reads r WHERE r.item_id = i.id AND r.user_id = s.user_id)
            )
-           AND COALESCE(i.published_at, i.created_at) <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-' || ? || ' days')
+           AND COALESCE(julianday(i.published_at), julianday(i.created_at)) <= julianday('now', '-' || ? || ' days')
        )`,
     ).run(settings.retentionReadDays);
     deletedReadItems = res.changes;
@@ -150,7 +150,7 @@ export function runCleanup(custom?: Partial<RetentionSettings>): CleanupResult {
          AND feed_id NOT IN (SELECT id FROM feeds WHERE is_system_inbox = 1)
          AND NOT EXISTS (SELECT 1 FROM editions e, json_each(e.item_ids) selected
            WHERE selected.value = items.id AND e.status = 'active' AND julianday(e.expires_at) > julianday('now'))
-         AND COALESCE(published_at, created_at) <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-' || ? || ' days')`,
+         AND COALESCE(julianday(published_at), julianday(created_at)) <= julianday('now', '-' || ? || ' days')`,
     ).run(settings.retentionMaxDays);
     deletedOldItems = res.changes;
   }
@@ -168,7 +168,7 @@ export function runCleanup(custom?: Partial<RetentionSettings>): CleanupResult {
            SELECT id FROM (
              SELECT id, ROW_NUMBER() OVER (
                PARTITION BY feed_id
-               ORDER BY COALESCE(published_at, created_at) DESC, id DESC
+               ORDER BY COALESCE(julianday(published_at), julianday(created_at)) DESC, id DESC
              ) as rn
              FROM items
            )

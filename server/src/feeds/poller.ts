@@ -10,6 +10,7 @@ import { findFeedById, listSubscriberIds, updateFeedAfterPoll, updateFeedIcon, u
 import { db } from "../db/index.js";
 import { configurePollHostCooldowns, PollQueue, type PollResult } from "./pollQueue.js";
 import { feedRequests, PollDeferredError, sourceHost } from "./requestGate.js";
+import { normalizePublishedAt } from "./dates.js";
 
 configurePollHostCooldowns();
 
@@ -113,7 +114,7 @@ async function pollAttempt(feed: Feed, signal: AbortSignal): Promise<PollResult>
     title: plainTitle(item.title), link: item.link,
     contentSnippet: decodeEntities(item.contentSnippet ?? item.content) ?? undefined,
     contentHtml: item.contentEncoded ?? item["content:encoded"] ?? item.content ?? null,
-    publishedAt: item.isoDate ?? item.pubDate, imageUrl: extractImageUrl(item),
+    publishedAt: normalizePublishedAt(item.isoDate ?? item.pubDate) ?? undefined, imageUrl: extractImageUrl(item),
   }));
   // No await in this transaction. Items, health/validators and job completion become visible together.
   const newItems = db.transaction(() => {

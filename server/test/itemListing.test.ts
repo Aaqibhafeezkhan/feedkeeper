@@ -61,12 +61,12 @@ test("article pages preserve access, filters, content and ordering", async (t) =
   const ids = (opts: Parameters<typeof listItemsForUser>[1] = {}, user = owner) => listItemsForUser(user, opts).map((row) => row.id);
 
   await t.test("only subscriptions and the caller's saved articles grant list access", () => {
-    assert.deepEqual(ids(), [4, 10, 1, 5, 8, 6, 3]);
+    assert.deepEqual(ids(), [10, 1, 5, 8, 3, 6, 4]);
     assert.deepEqual(ids({}, outsider), []);
     assert.deepEqual(ids({ feedId: foreign }), []);
     assert.deepEqual(ids({ feedId: unsubscribed }), [8]);
     assert.deepEqual(ids({ folderId: foreignFolder }), []);
-    assert.deepEqual(ids({ folderId: folder }), [4, 10, 1, 5, 3]);
+    assert.deepEqual(ids({ folderId: folder }), [10, 1, 5, 3, 4]);
     assert.deepEqual(ids({ folderId: folder, feedId: own }), []);
     assert.deepEqual(ids({ folderId: folder, bookmarkedOnly: true }), [1, 2]);
     assert.deepEqual(ids({ bookmarkedOnly: true }, other), [9, 5]);
@@ -91,7 +91,7 @@ test("article pages preserve access, filters, content and ordering", async (t) =
   });
 
   await t.test("read, muted, literal search and archived search filters apply before paging", () => {
-    assert.deepEqual(ids({ includeMuted: true }), [4, 10, 1, 5, 8, 6, 2, 3]);
+    assert.deepEqual(ids({ includeMuted: true }), [10, 1, 5, 8, 3, 6, 4, 2]);
     assert.deepEqual(ids({ unreadOnly: true, includeMuted: true }), ids());
     assert.deepEqual(ids({ bookmarkedOnly: true }), [8, 1, 2]);
     assert.deepEqual(ids({ bookmarkedOnly: true, unreadOnly: true }), [8, 1]);
@@ -107,13 +107,13 @@ test("article pages preserve access, filters, content and ordering", async (t) =
 
   await t.test("date bounds use the existing publish-date fallback and inclusivity", () => {
     assert.deepEqual(ids({ since: day(4), sortByAdded: true }), [8, 6]);
-    assert.deepEqual(ids({ publishedSince: day(2), publishedUntil: day(3) }), [4, 8, 6, 3]);
+    assert.deepEqual(ids({ publishedSince: day(2), publishedUntil: day(3) }), [8, 3, 6, 4]);
     assert.deepEqual(ids({ publishedSince: day(3), publishedUntil: day(3) }), [8, 3]);
   });
 
   await t.test("all three orders and offset pages retain their stable tie breakers", () => {
     const orders = [
-      [{}, [4, 10, 1, 5, 8, 6, 3]],
+      [{}, [10, 1, 5, 8, 3, 6, 4]],
       [{ sortByAdded: true }, [8, 6, 10, 1, 3, 4, 5]],
       [{ bookmarkedOnly: true }, [8, 1, 2]],
       [{ bookmarkedOnly: true, sortByAdded: true }, [8, 2, 1]],

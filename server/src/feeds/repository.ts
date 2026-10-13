@@ -413,7 +413,7 @@ export function listItemsForUser(
   const limit = Math.min(opts.limit ?? 50, 200);
   const offset = Math.max(opts.offset ?? 0, 0);
   params.push(limit, offset);
-  const orderBy = opts.sortByAdded ? "i.created_at DESC, i.id DESC" : opts.bookmarkedOnly ? "b.created_at DESC, i.id DESC" : "i.published_at DESC, i.created_at DESC, i.id DESC";
+  const orderBy = opts.sortByAdded ? "i.created_at DESC, i.id DESC" : opts.bookmarkedOnly ? "b.created_at DESC, i.id DESC" : "COALESCE(julianday(i.published_at), julianday(i.created_at)) DESC, i.created_at DESC, i.id DESC";
 
   // Page IDs before loading HTML. User/feed and user/item keys make these joins unique.
   // Keep selection and loading in one statement so they share the same read snapshot.
@@ -938,9 +938,9 @@ export function searchItemsForUser(
   const limit = Math.min(opts.limit ?? 30, 100);
   const offset = Math.max(opts.offset ?? 0, 0);
 
-  let orderBy = "i.published_at DESC, i.created_at DESC, i.id DESC";
+  let orderBy = "COALESCE(julianday(i.published_at), julianday(i.created_at)) DESC, i.created_at DESC, i.id DESC";
   if (opts.sort !== "date" && fts) {
-    orderBy = "COALESCE(fts.rank, 0) ASC, i.published_at DESC";
+    orderBy = "COALESCE(fts.rank, 0) ASC, COALESCE(julianday(i.published_at), julianday(i.created_at)) DESC";
   }
 
   const querySql = `
