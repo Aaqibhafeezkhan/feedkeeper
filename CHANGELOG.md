@@ -4,6 +4,17 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-10-13
+
+### Added
+- Hosts can set the page title and description of the web app through `window.feedkeeperExtensions.meta`, by language like footer links. See [Extending the web app](docs/extending-the-web-app.md#page-title-and-description).
+
+### Changed
+- The README points to the hosted edition in its own short section instead of a banner above the screenshots.
+
+### Upgrade notes
+- No database migration or configuration change is needed. Without `meta` in `window.feedkeeperExtensions` the web app keeps its title and description.
+
 ## [0.22.0] - 2026-10-12
 
 ### Added
@@ -324,7 +335,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.22.1...HEAD
+[0.22.1]: https://github.com/visualfusion/feedkeeper/compare/v0.22.0...v0.22.1
 [0.21.0]: https://github.com/visualfusion/feedkeeper/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/visualfusion/feedkeeper/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/visualfusion/feedkeeper/compare/v0.18.0...v0.19.0
