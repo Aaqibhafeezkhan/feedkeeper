@@ -75,6 +75,13 @@ export interface ArticlesNoticeExtension {
   mount: (container: HTMLElement) => void | (() => void);
 }
 
+export interface MetaExtension {
+  /** The title of the page: the browser tab and what link previews show. */
+  title?: Localized;
+  /** The description that search engines and link previews show for the page. */
+  description?: Localized;
+}
+
 export interface LoginFormExtension {
   /** Fills the container where the sign-in form is. After signing in, reload the page. */
   mount: (container: HTMLElement) => void | (() => void);
@@ -253,4 +260,23 @@ export function resolveArticlesNotice(extensions: unknown): ArticlesNoticeExtens
   const notice = isObject(extensions) ? extensions.articlesNotice : undefined;
   if (!isObject(notice) || typeof notice.mount !== "function") return null;
   return { mount: notice.mount as ArticlesNoticeExtension["mount"], ...(typeof notice.applies === "function" ? { applies: notice.applies as ArticlesNoticeExtension["applies"] } : {}) };
+}
+
+export interface ResolvedMeta {
+  title: string | null;
+  description: string | null;
+}
+
+/**
+ * The page title and description the host asks for, in the language the app is shown in. A value that is missing,
+ * not text or too long is left out, so the app keeps its own wording for it.
+ */
+export function resolveMeta(extensions: unknown, language: string): ResolvedMeta {
+  const meta = isObject(extensions) && isObject(extensions.meta) ? extensions.meta : {};
+  const title = pickLocalized(meta.title, language)?.trim() ?? null;
+  const description = pickLocalized(meta.description, language)?.trim() ?? null;
+  return {
+    title: title && isText(title, 80) ? title : null,
+    description: description && isText(description, 300) ? description : null,
+  };
 }

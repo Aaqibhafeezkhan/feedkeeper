@@ -1,6 +1,6 @@
 # Extending the web app
 
-A script that runs on the page can customise the web app without patching it: add pages to the settings, add links to the footers, and replace the sign-in form. Typical uses are an operator who has to link a legal notice and a privacy policy, a company that signs users in through its own single sign-on, or a hosted service with pages of its own. A regular installation needs none of this.
+A script that runs on the page can customise the web app without patching it: add pages to the settings, add links to the footers, replace the sign-in form, and set the page title and description. Typical uses are an operator who has to link a legal notice and a privacy policy, a company that signs users in through its own single sign-on, or a hosted service with pages of its own. A regular installation needs none of this.
 
 The app reads one plain object from `window`. Include the script in the `index.html` you serve, or add it with whatever proxy sits in front of the app.
 
@@ -11,6 +11,7 @@ const extensions = window.feedkeeperExtensions;
 extensions.footerLinks = [/* … */];
 extensions.settings = { sections: [/* … */], hidden: [/* … */] };
 extensions.loginForm = { mount(container) { /* … */ } };
+extensions.meta = { title: "…", description: "…" };
 
 // Tell the app that something changed.
 window.dispatchEvent(new Event("feedkeeper:extensions-changed"));
@@ -57,6 +58,19 @@ extensions.settings = {
 - Sections of the host are listed after the built-in ones, under their group heading; groups appear in the order of their first section.
 - `mount` receives an empty element each time the section opens. The function it returns runs when the section closes. The section opens through `?tab=<id>`, so links and reloads keep it.
 - Entries with a missing field, an invalid or repeated id, the id of a built-in section, or a `mount` that is not a function are ignored. `admin` sections are left out for other users, and `hidden` only affects built-in ids. A `mount` that throws is logged and leaves an empty section.
+
+## Page title and description
+
+```js
+extensions.meta = {
+  title: { de: "Meine Zeitung", en: "My newspaper", ja: "私の新聞" },
+  description: { en: "The feeds of our team as a daily newspaper." },
+};
+```
+
+- `title` is shown in the browser tab and used for link previews. `description` is what search engines and link previews show. Both are either one value or values by language code, picked like the footer links.
+- A value that is missing, empty, not text or too long (80 characters for the title, 300 for the description) is ignored, and the app keeps its own wording for it. When a language has no value, the English one is used, then the first one given.
+- The title applies to the page the app is served on. It does not change the pages of the host that sit next to the app, such as a landing page.
 
 ## Sign-in form
 

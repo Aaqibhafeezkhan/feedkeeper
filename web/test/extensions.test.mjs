@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupSettingsSections, pickLocalized, resolveFooterLinks, resolveLoginForm, resolvePasswordCard, resolveArticlesNotice, resolveSettingsExtensions } from "../src/extensions/host.ts";
+import { groupSettingsSections, pickLocalized, resolveFooterLinks, resolveLoginForm, resolveMeta, resolvePasswordCard, resolveArticlesNotice, resolveSettingsExtensions } from "../src/extensions/host.ts";
 
 const builtIn = ["account", "general", "users", "database"];
 const section = (id, extra = {}) => ({ id, label: `Label ${id}`, description: "Beschreibung", group: "Kunden", mount: () => {}, ...extra });
@@ -168,4 +168,23 @@ test("a notice above the articles needs a mount function, and `applies` is optio
   assert.equal(resolveArticlesNotice({ articlesNotice: {} }), null);
   assert.equal(resolveArticlesNotice({ articlesNotice: { mount: "x" } }), null);
   assert.equal(resolveArticlesNotice(undefined), null);
+});
+
+test("a host sets the page title and description by language, and only usable values replace the app's own", () => {
+  const host = {
+    meta: {
+      title: { de: "FeedKeeper – deine Zeitung", en: "FeedKeeper – your newspaper" },
+      description: { en: "A newspaper made from your feeds." },
+    },
+  };
+  assert.deepEqual(resolveMeta(host, "de"), { title: "FeedKeeper – deine Zeitung", description: "A newspaper made from your feeds." });
+  assert.deepEqual(resolveMeta(host, "de-AT").title, "FeedKeeper – deine Zeitung");
+  assert.deepEqual(resolveMeta(host, "fr").title, "FeedKeeper – your newspaper");
+  assert.deepEqual(resolveMeta({ meta: { title: "  Plain  " } }, "en"), { title: "Plain", description: null });
+  // Too long, empty or not text: the app keeps its own wording.
+  assert.deepEqual(resolveMeta({ meta: { title: "x".repeat(81), description: "y".repeat(301) } }, "en"), { title: null, description: null });
+  assert.deepEqual(resolveMeta({ meta: { title: "   ", description: 5 } }, "en"), { title: null, description: null });
+  for (const broken of [undefined, null, "text", 5, [], {}, { meta: "x" }, { meta: [] }, { meta: { title: {} } }]) {
+    assert.deepEqual(resolveMeta(broken, "en"), { title: null, description: null });
+  }
 });
