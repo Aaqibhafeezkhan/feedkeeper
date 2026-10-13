@@ -4,6 +4,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-13
+
 ### Changed
 - Full-text preparation continuously fills available workers. Reader requests and background work share article jobs, with configurable concurrency, host limits and bounded waiting.
 - Normal proxied article images expire after at most six hours and support conditional requests. Archived images keep their fixed version.
@@ -379,7 +381,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.23.1...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/visualfusion/feedkeeper/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/visualfusion/feedkeeper/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/visualfusion/feedkeeper/compare/v0.22.1...v0.23.0
 [0.22.1]: https://github.com/visualfusion/feedkeeper/compare/v0.22.0...v0.22.1
