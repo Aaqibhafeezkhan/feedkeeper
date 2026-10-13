@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+- The connected clients under Settings → MCP are now called AI assistants instead of apps, so they are not confused with the FeedKeeper apps.
+
 ## [0.24.0] - 2026-10-13
 
 ### Changed

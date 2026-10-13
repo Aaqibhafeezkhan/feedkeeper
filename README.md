@@ -207,7 +207,7 @@ If you would rather not operate a server, [FeedKeeper Cloud](https://feedkeeper.
 
 ## Connecting an MCP client
 
-**With OAuth (ChatGPT, Claude and other connectors).** Add `https://<your-domain>/mcp` as a remote MCP server or custom connector. The client discovers the sign-in on its own: you log in to FeedKeeper, choose **read only** or **read and write** on the consent page, and the client gets a short-lived token (1 hour, refreshed for 30 days). Connected apps are listed under **Settings → MCP** and can be disconnected at any time. `OAUTH_ALLOWED_REDIRECT_HOSTS` can limit which hosts may register. Set `PUBLIC_URL` to the address the client reaches the server at; see [docs/design/mcp-oauth.md](docs/design/mcp-oauth.md).
+**With OAuth (ChatGPT, Claude and other connectors).** Add `https://<your-domain>/mcp` as a remote MCP server or custom connector. The client discovers the sign-in on its own: you log in to FeedKeeper, choose **read only** or **read and write** on the consent page, and the client gets a short-lived token (1 hour, refreshed for 30 days). Connected AI assistants are listed under **Settings → MCP** and can be disconnected at any time. `OAUTH_ALLOWED_REDIRECT_HOSTS` can limit which hosts may register. Set `PUBLIC_URL` to the address the client reaches the server at; see [docs/design/mcp-oauth.md](docs/design/mcp-oauth.md).
 
 **With a personal access token (scripts and clients without OAuth).**
 
