@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import express from "express";
 import helmet from "helmet";
+import { securityHeaderOptions } from "./securityHeaders.js";
 import cors from "cors";
 import cookieSession from "cookie-session";
 import rateLimit from "express-rate-limit";
@@ -45,22 +46,7 @@ if (config.clientIpHeader && !Array.isArray(config.trustProxy)) {
 // Before every rate limiter, so limits count the CDN's client rather than its edge.
 app.use(clientAddressFromHeader(config.clientIpHeader, config.trustProxy));
 
-// Upgrading every request to https is only right when the instance is served over https. On a plain http address
-// (localhost, a home network) Safari would upgrade scripts and images to an https origin that does not exist.
-const servedOverHttps = new URL(config.publicUrl).protocol === "https:";
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "script-src": ["'self'"],
-        "img-src": ["'self'", "data:", "https:", "http:"],
-        "upgrade-insecure-requests": servedOverHttps ? [] : null,
-      },
-    },
-    strictTransportSecurity: servedOverHttps,
-  }),
-);
+app.use(helmet(securityHeaderOptions(config.publicUrl)));
 // Send X-Robots-Tag to ensure all HTTP endpoints disallow indexing even outside HTML
 app.use((_req, res, next) => {
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
