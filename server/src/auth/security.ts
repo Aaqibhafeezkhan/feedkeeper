@@ -85,6 +85,15 @@ export function newRecoveryCodes(userId: number): string[] {
   for (const code of codes) db.prepare("INSERT INTO recovery_codes (user_id, code_hash) VALUES (?, ?)").run(userId, hash(code));
   return codes.map(code => code.match(/.{6}/g)!.join("-"));
 }
+/**
+ * A new password ends every browser session and pending sign-in that knew the old one. Access tokens, paired
+ * devices and connected apps are the person's own and keep working; they can be removed one by one.
+ */
+export function revokeBrowserSessions(userId: number): void {
+  securityAccount(userId);
+  db.prepare("UPDATE account_security SET version = version + 1 WHERE user_id = ?").run(userId);
+  db.prepare("DELETE FROM security_challenges WHERE user_id = ?").run(userId);
+}
 /** Enabling MFA invalidates older password-only sessions, tokens, pairing codes and pending logins. */
 export function revokeSecuritySessions(userId: number): void {
   db.prepare("UPDATE account_security SET version = version + 1 WHERE user_id = ?").run(userId);

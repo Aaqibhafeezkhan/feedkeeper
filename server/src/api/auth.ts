@@ -17,10 +17,10 @@ import {
   updateUserPassword,
 } from "../auth/users.js";
 import { AVATAR_MAX_BYTES, detectAvatarType } from "../auth/avatar.js";
-import { verifyPassword } from "../auth/password.js";
+import { verifyPassword, verifyPasswordOrDummy } from "../auth/password.js";
 import { getUserCapabilities } from "../auth/capabilities.js";
 
-import { beginMfa, securityVersion } from "../auth/security.js";
+import { beginMfa, revokeBrowserSessions, securityVersion } from "../auth/security.js";
 import { createSecurityRouter } from "../auth/securityRoutes.js";
 
 export const authRouter = Router();
@@ -49,7 +49,9 @@ authRouter.post("/login", loginLimiter, (req, res) => {
   }
 
   const user = findUserByEmail(parsed.data.email);
-  if (!user || !verifyPassword(parsed.data.password, user.password_hash)) {
+  // Always check a password, so an unknown address answers as slowly as a wrong password.
+  const passwordMatches = verifyPasswordOrDummy(parsed.data.password, user?.password_hash);
+  if (!user || !passwordMatches) {
     res.status(401).json({ error: "invalid_credentials" });
     return;
   }
@@ -143,6 +145,9 @@ authRouter.post("/change-password", requireSession, loginLimiter, (req, res) => 
   }
 
   updateUserPassword(user.id, parsed.data.newPassword);
+  // Other browsers that were signed in with the old password are signed out; this one stays.
+  revokeBrowserSessions(user.id);
+  req.session = { userId: user.id, securityVersion: securityVersion(user.id) };
   res.status(204).end();
 });
 
