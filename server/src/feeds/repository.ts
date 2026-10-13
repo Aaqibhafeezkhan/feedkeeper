@@ -957,7 +957,10 @@ export function searchItemsForUser(
     orderBy = "COALESCE(fts.rank, 0) ASC, COALESCE(julianday(i.published_at), julianday(i.created_at)) DESC";
   }
 
+  const ranked = opts.sort !== "date" && fts;
+  // Materialize once: a virtual-table MATCH in the LEFT JOIN repeats the full ranking scan for each article.
   const querySql = `
+    ${ranked ? "WITH ranked_matches AS MATERIALIZED (SELECT rowid, rank FROM items_fts WHERE items_fts MATCH ?)" : ""}
     SELECT DISTINCT i.*,
            COALESCE(NULLIF(TRIM(s.label), ''), NULLIF(TRIM(f.title), ''), f.url) AS feed_title,
            f.site_url AS feed_site_url,
@@ -973,18 +976,18 @@ export function searchItemsForUser(
     LEFT JOIN item_reads r ON r.item_id = i.id AND r.user_id = ?
     LEFT JOIN item_bookmarks b ON b.item_id = i.id AND b.user_id = ?
     LEFT JOIN item_notes n ON n.item_id = i.id AND n.user_id = ?
-    ${opts.sort !== "date" && fts ? "LEFT JOIN items_fts fts ON fts.rowid = i.id AND items_fts MATCH ?" : ""}
+    ${ranked ? "LEFT JOIN ranked_matches fts ON fts.rowid = i.id" : ""}
     WHERE ${conditions.join(" AND ")}
     ORDER BY ${orderBy}
     LIMIT ? OFFSET ?
   `;
 
   const queryParams = [
+    ...(ranked ? [fts] : []),
     userId,
     userId,
     userId,
     userId,
-    ...(opts.sort !== "date" && fts ? [fts] : []),
     ...params,
     limit,
     offset,
