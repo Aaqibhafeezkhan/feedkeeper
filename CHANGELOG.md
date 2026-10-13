@@ -4,6 +4,11 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-13
+
+### Changed
+- On narrow screens the settings are a list of pages instead of a row of chips: each section shows its icon, name and description under its group heading, opens as its own page and has a back link. The side navigation on wide screens is unchanged. Sections added by a hosting product appear in the list automatically, and `shortLabel` is still accepted but no longer shown.
+
 ## [0.24.1] - 2026-10-13
 
 ### Fixed
@@ -390,7 +395,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.24.1...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/visualfusion/feedkeeper/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/visualfusion/feedkeeper/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/visualfusion/feedkeeper/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/visualfusion/feedkeeper/compare/v0.23.0...v0.23.1
