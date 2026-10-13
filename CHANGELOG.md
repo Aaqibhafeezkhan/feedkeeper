@@ -4,11 +4,14 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-10-13
+
 ### Fixed
 - Opening FeedKeeper over plain `http://` (for example `http://localhost:3000` or an address in the home network) in Safari showed a blank page. The server now sends `upgrade-insecure-requests` and HSTS only when `PUBLIC_URL` is an `https://` address.
 
 ### Changed
 - The connected clients under Settings → MCP are now called AI assistants instead of apps, so they are not confused with the FeedKeeper apps.
+- The welcome card starts with its heading, and the short introduction card uses the same icons as the controls it describes.
 
 ## [0.24.0] - 2026-10-13
 
@@ -387,7 +390,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.24.1...HEAD
+[0.24.1]: https://github.com/visualfusion/feedkeeper/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/visualfusion/feedkeeper/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/visualfusion/feedkeeper/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/visualfusion/feedkeeper/compare/v0.22.1...v0.23.0
