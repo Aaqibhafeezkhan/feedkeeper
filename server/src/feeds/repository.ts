@@ -858,6 +858,16 @@ export function formatFtsQuery(raw: string): string {
   return sanitized.join(" ");
 }
 
+/**
+ * True when the query has letters or digits that the full-text index cannot be asked for as typed (Japanese,
+ * Cyrillic, Greek, ...). `formatFtsQuery` drops them, so a query such as "RSS 新聞" would silently search for "RSS"
+ * alone; such queries are matched word by word as substrings instead. Quoted phrases are passed through as typed.
+ */
+export function needsSubstringSearch(raw: string): boolean {
+  const outsideQuotes = raw.replace(/"[^"]*"/g, " ");
+  return /(?![a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF])[\p{L}\p{N}]/u.test(outsideQuotes);
+}
+
 export interface SearchOptions {
   query: string;
   feedId?: number;
@@ -885,7 +895,7 @@ export function searchItemsForUser(
   })[];
   total: number;
 } {
-  const fts = formatFtsQuery(opts.query);
+  const fts = needsSubstringSearch(opts.query) ? "" : formatFtsQuery(opts.query);
   const conditions: string[] = ["(s.id IS NOT NULL OR b.item_id IS NOT NULL OR n.user_id IS NOT NULL)"];
   const params: unknown[] = [];
 
@@ -912,14 +922,18 @@ export function searchItemsForUser(
     )`);
     params.push(fts, userId, opts.query);
   } else {
-    conditions.push(`(
-      INSTR(LOWER(COALESCE(i.title, '')), LOWER(?)) > 0
-      OR INSTR(LOWER(COALESCE(i.content_snippet, '')), LOWER(?)) > 0
-      OR INSTR(LOWER(COALESCE(i.content_html, '')), LOWER(?)) > 0
-      OR INSTR(LOWER(COALESCE(i.full_content_html, '')), LOWER(?)) > 0
-      OR i.id IN (SELECT item_id FROM item_notes WHERE user_id = ? AND INSTR(LOWER(content), LOWER(?)) > 0)
-    )`);
-    params.push(opts.query, opts.query, opts.query, opts.query, userId, opts.query);
+    // Every word has to occur somewhere in the article or in the person's note.
+    const words = opts.query.trim().split(/\s+/).filter(Boolean).slice(0, 8);
+    for (const word of words) {
+      conditions.push(`(
+        INSTR(LOWER(COALESCE(i.title, '')), LOWER(?)) > 0
+        OR INSTR(LOWER(COALESCE(i.content_snippet, '')), LOWER(?)) > 0
+        OR INSTR(LOWER(COALESCE(i.content_html, '')), LOWER(?)) > 0
+        OR INSTR(LOWER(COALESCE(i.full_content_html, '')), LOWER(?)) > 0
+        OR i.id IN (SELECT item_id FROM item_notes WHERE user_id = ? AND INSTR(LOWER(content), LOWER(?)) > 0)
+      )`);
+      params.push(word, word, word, word, userId, word);
+    }
   }
 
   // Count total matches
