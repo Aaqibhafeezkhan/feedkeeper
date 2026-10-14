@@ -353,7 +353,7 @@ const SNIPPET_INLINE_PATTERNS: RegExp[] = [
  */
 export function cleanSnippet(snippet: string | null | undefined, title?: string | null): string | null {
   if (snippet === null || snippet === undefined) return null;
-  let text = snippet.replace(/\r\n?/g, "\n").replace(/[ \t ]+/g, " ");
+  let text = snippet.replace(/\r\n?/g, "\n").replace(/[ \t\u00a0]+/g, " ");
   for (const pattern of SNIPPET_INLINE_PATTERNS) text = text.replace(pattern, "");
   const headline = normalized(title ?? "");
   const lines = text.split("\n").map(line => line.trim()).filter((line, index) =>
