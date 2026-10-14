@@ -205,9 +205,36 @@ function serialize(root: DocumentFragment): string {
 export function cleanReaderHtml(html: string, title?: string | null, stats: NoiseStats = {}): string {
   if (!html) return html;
   const root = JSDOM.fragment(html);
+  const images = resolveCustomImages(root, stats);
   const noise = removeReaderNoise(root, title, stats);
   const typography = removeTypography(root, stats);
-  return noise || typography ? serialize(root) : html;
+  return images || noise || typography ? serialize(root) : html;
+}
+
+/**
+ * Some publishers wrap a picture in their own element and let a script fill the image: `<a-img src="/imgs/…">`
+ * around an `<img>` that only holds a grey placeholder. Without the script no reader would ever show the picture, so
+ * the wrapper's address takes the placeholder's place and the wrapper, which means nothing outside the page, goes.
+ */
+function resolveCustomImages(root: DocumentFragment, stats: NoiseStats): boolean {
+  let changed = false;
+  for (const wrapper of [...root.querySelectorAll("a-img")]) {
+    const source = (wrapper.getAttribute("src") ?? "").trim();
+    if (source && !/^data:/i.test(source)) {
+      let image = wrapper.querySelector("img");
+      if (!image) {
+        image = wrapper.ownerDocument.createElement("img");
+        image.setAttribute("alt", wrapper.getAttribute("alt") ?? "");
+        wrapper.append(image);
+      }
+      const current = (image.getAttribute("src") ?? "").trim();
+      if (!current || /^data:/i.test(current)) image.setAttribute("src", source);
+    }
+    wrapper.replaceWith(...wrapper.childNodes);
+    changed = true;
+  }
+  if (changed) stats["custom-image"] = (stats["custom-image"] ?? 0) + 1;
+  return changed;
 }
 
 const CREDIT_PATTERNS: RegExp[] = [

@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+- Pictures that a publisher wraps in its own element (`<a-img src="…">` around an `<img>` that only holds a grey placeholder) are shown in the reader HTML: the wrapper's address replaces the placeholder and the wrapper is removed.
+
 ## [0.26.3] - 2026-10-14
 
 ### Changed

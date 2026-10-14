@@ -193,3 +193,16 @@ test("a section chip and a standalone date before the first paragraph are droppe
   assert.match(cleaned, /Widerstand gegen/);
   assert.match(cleaned, /Mehr dazu/);
 });
+
+test("a wrapper element's picture address replaces the placeholder image inside it", () => {
+  const html = `<figure><a-img alt="Portrait" src="/imgs/71/portrait.png" width="810"><img alt="Portrait" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E" width="810"></a-img><figcaption>Portrait</figcaption></figure><p>Text</p>`;
+  const stats: Record<string, number> = {};
+  const cleaned = cleanReaderHtml(html, null, stats);
+  assert.match(cleaned, /<img[^>]*src="\/imgs\/71\/portrait\.png"/);
+  assert.doesNotMatch(cleaned, /a-img|data:image/);
+  assert.match(cleaned, /<figcaption>Portrait<\/figcaption>/);
+  assert.equal(stats["custom-image"], 1);
+  const bare = cleanReaderHtml(`<p><a-img alt="Chart" src="https://cdn.example.test/chart.png"></a-img></p><p>More text here.</p>`);
+  assert.match(bare, /<img[^>]*src="https:\/\/cdn\.example\.test\/chart\.png"[^>]*>/);
+  assert.equal(cleanReaderHtml(`<p><img src="/photo.jpg"></p>`), `<p><img src="/photo.jpg"></p>`);
+});
