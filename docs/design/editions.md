@@ -138,3 +138,39 @@ Clients concatenate segments, create native article links from validated IDs, an
 Candidate payloads additionally include `sourceName` and `folderName`. The generic internal helper `cachedEditionSources(userId, itemIds)` provides access-checked cached reader/feed/snippet text, with no network fetching or scripts. It permits at most 24 distinct IDs, at most 6000 characters per article and 48000 total (UTF-16 units); it indicates `textKind` and may truncate source material. This is an internal extension point, not a new public full-text endpoint.
 
 Migration `0025_edition_overview.sql` adds a nullable JSON column without changing existing editions, accounts or tokens. Consumers must build the current core before validation; core builds now emit declarations so downstream TypeScript contracts cannot silently use stale declaration files.
+
+
+## Layouts (unreleased)
+
+Feature flag: `edition.layout`. `publish_edition` accepts an optional `layout`, a presentation plan for the issue: what its writer considers important and what belongs together. It never says how a screen draws it; clients map the roles onto their own columns, sizes and type. The issue's `itemIds` stay the canonical, ordered list, and an issue without a layout is shown exactly as before.
+
+```json
+"layout": {
+  "version": 1,
+  "character": "dominant",
+  "blocks": [
+    { "type": "lead", "itemId": 101, "kicker": "Aviation" },
+    { "type": "dossier", "topic": 1, "itemIds": [102, 103] },
+    { "type": "feature", "itemId": 104 },
+    { "type": "standard", "stories": [{ "itemId": 105 }, { "itemId": 106 }] },
+    { "type": "photo", "itemId": 107 },
+    { "type": "briefs", "itemIds": [108, 109, 110] }
+  ]
+}
+```
+
+`character` is `dominant` (one topic carries the day), `calm` (room for pictures) or `briefing` (many short items). Block types:
+
+| `type` | Fields | Meaning |
+|---|---|---|
+| `lead` | `itemId`, `kicker?` | The story of the day. At most once, and only as the first block. |
+| `dossier` | `topic`, `itemIds` (1–4) | One topic of `overview` (1-based position) with the stories it is about. One dossier per topic. |
+| `feature` | `itemId`, `kicker?` | A strong single story, larger than the rest. |
+| `standard` | `stories` (1–3 × `itemId`, `kicker?`) | Ordinary stories side by side. |
+| `briefs` | `itemIds` (2–8), `title?` | Short items without large pictures. |
+| `photo` | `itemId` | One picture set large; meaningful only for a story with an image. |
+| `quote` | `itemId`, `text` (≤ 160) | A statement of an article set large. The issuer vouches that it is quoted from the article; the server checks form and length only. |
+
+A `kicker` is one short phrase of at most 40 characters without closing punctuation: a classification, not a statement. Validation is strict: unknown fields and block types, a version other than 1 and malformed values are rejected with `invalid_layout`. A layout that names a story outside the issue, or a topic that the overview does not have, is rejected with `invalid_layout_reference`; a story used twice, a lead that is not first and a second dossier for one topic are `invalid_layout`. At most 24 blocks. Stories the layout does not mention remain part of the issue; clients set them as plain stories after the planned blocks, in the order of `itemIds`.
+
+Clients must tolerate `null`, versions they do not know and block types they do not know (set their stories as plain ones), and must not depend on a layout being present. Migration `0034_edition_layout.sql` adds a nullable JSON column and leaves existing editions untouched.

@@ -7,6 +7,7 @@ import { canAccessItem } from "../feeds/repository.js";
 import { decodeEntities } from "../feeds/text.js";
 import { editionPeriod, nextEditionBoundary, selectEdition, type EditionCandidate } from "./editionSelection.js";
 import { getNativePreferences } from "./preferences.js";
+import { checkEditionLayout, editionLayoutSchema, type EditionLayout } from "./editionLayout.js";
 import { NativeError, nativeRequest } from "./requests.js";
 
 export const overviewSchema = z.array(z.object({
@@ -32,6 +33,8 @@ export interface ServerEdition {
   title: string | null;
   summary: string | null;
   overview: EditionOverview | null;
+  /** How the writer of the issue wants it set; null for automatic and unstructured issues. */
+  layout: EditionLayout | null;
   preferencesRevision: number;
   itemIds: number[];
 }
@@ -48,6 +51,7 @@ interface EditionRow {
   title: string | null;
   summary: string | null;
   overview: string | null;
+  layout: string | null;
   preferences_revision: number;
   item_ids: string;
 }
@@ -66,7 +70,8 @@ function serialize(row: EditionRow): ServerEdition {
     id: row.edition_id, revision: row.revision, source: row.source,
     createdAt: row.created_at, updatedAt: row.updated_at, expiresAt: row.expires_at,
     period: (row.period?.split(":")[1] as ServerEdition["period"] | undefined) ?? editionPeriod(new Date(row.created_at), prefs.timeZone).period,
-    title: row.title, summary: row.summary, overview: row.overview ? JSON.parse(row.overview) : null, preferencesRevision: row.preferences_revision,
+    title: row.title, summary: row.summary, overview: row.overview ? JSON.parse(row.overview) : null, layout: row.layout ? JSON.parse(row.layout) : null,
+    preferencesRevision: row.preferences_revision,
     itemIds: JSON.parse(row.item_ids),
   };
 }
@@ -83,18 +88,19 @@ function checkRevision(userId: number, expectedRevision: number | undefined, now
   const current = getEditionState(userId, now);
   if (expectedRevision !== undefined && current.revision !== expectedRevision) throw new NativeError("revision_conflict", 409, current);
 }
-function writeEdition(userId: number, itemIds: number[], source: ServerEdition["source"], expiry: Date, now: Date, title: string | null = null, summary: string | null = null, overview: EditionOverviewInput | null = null): ServerEdition {
+function writeEdition(userId: number, itemIds: number[], source: ServerEdition["source"], expiry: Date, now: Date, title: string | null = null, summary: string | null = null, overview: EditionOverviewInput | null = null, layout: EditionLayout | null = null): ServerEdition {
   const prefs = getNativePreferences(userId);
   const id = randomUUID();
   const revision = (storedEdition(userId)?.revision ?? 0) + 1;
   const created = now.toISOString();
-  db.prepare(`INSERT INTO editions (user_id, edition_id, item_ids, revision, source, status, created_at, updated_at, expires_at, period, title, summary, preferences_revision, overview)
-    VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?)
+  db.prepare(`INSERT INTO editions (user_id, edition_id, item_ids, revision, source, status, created_at, updated_at, expires_at, period, title, summary, preferences_revision, overview, layout)
+    VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(user_id) DO UPDATE SET edition_id = excluded.edition_id, item_ids = excluded.item_ids,
       revision = excluded.revision, source = excluded.source, status = 'active', created_at = excluded.created_at,
       updated_at = excluded.updated_at, expires_at = excluded.expires_at, period = excluded.period,
-      title = excluded.title, summary = excluded.summary, preferences_revision = excluded.preferences_revision, overview = excluded.overview`)
-    .run(userId, id, JSON.stringify(itemIds), revision, source, created, created, expiry.toISOString(), editionPeriod(now, prefs.timeZone).key, title, summary, prefs.revision, overview ? JSON.stringify(overview.map((block, index) => ({ id: `topic-${index + 1}`, ...block }))) : null);
+      title = excluded.title, summary = excluded.summary, preferences_revision = excluded.preferences_revision, overview = excluded.overview,
+      layout = excluded.layout`)
+    .run(userId, id, JSON.stringify(itemIds), revision, source, created, created, expiry.toISOString(), editionPeriod(now, prefs.timeZone).key, title, summary, prefs.revision, overview ? JSON.stringify(overview.map((block, index) => ({ id: `topic-${index + 1}`, ...block }))) : null, layout ? JSON.stringify(layout) : null);
   db.prepare("INSERT INTO edition_history (user_id, edition_id, item_ids, revision, created_at) VALUES (?, ?, ?, ?, ?)")
     .run(userId, id, JSON.stringify(itemIds), revision, created);
   db.prepare(`DELETE FROM edition_history WHERE user_id = ? AND edition_id NOT IN
@@ -112,6 +118,7 @@ export const publishEditionFields = {
   title: z.string().trim().min(1).max(200).optional(),
   summary: z.string().trim().min(1).max(2000).optional(),
   overview: overviewSchema.optional(),
+  layout: editionLayoutSchema.optional(),
 };
 const publishSchema = z.object(publishEditionFields).strict().refine((input) => !(input.expiresAt && input.durationHours), "Use expiresAt or durationHours, not both");
 export type PublishEditionInput = z.infer<typeof publishSchema>;
@@ -119,6 +126,7 @@ export type PublishEditionInput = z.infer<typeof publishSchema>;
 /** Both automatic and MCP editions obey the app's hard exclusions. Read/saved articles
  * may be selected deliberately by an agent, but foreign and muted items cannot be published. */
 export function publishCuratedEdition(userId: number, input: PublishEditionInput, now = new Date()): ServerEdition {
+  if (input.layout !== undefined && !editionLayoutSchema.safeParse(input.layout).success) throw new NativeError("invalid_layout");
   const parsed = publishSchema.safeParse(input);
   if (!parsed.success) throw new NativeError("invalid_input");
   const { requestId, ...data } = parsed.data;
@@ -129,6 +137,7 @@ export function publishCuratedEdition(userId: number, input: PublishEditionInput
       block.segments.some((segment) => segment.itemId !== undefined && !data.itemIds.includes(segment.itemId)))) {
       throw new NativeError("invalid_overview_reference");
     }
+    if (data.layout) checkEditionLayout(data.layout, data.itemIds, data.overview?.length ?? 0);
     const prefs = getNativePreferences(userId);
     for (const id of data.itemIds) {
       if (!canAccessItem(userId, id)) throw new NativeError("item_not_found", 404);
@@ -144,7 +153,7 @@ export function publishCuratedEdition(userId: number, input: PublishEditionInput
     }
     const expiry = data.expiresAt ? new Date(data.expiresAt) : new Date(now.getTime() + (data.durationHours ?? 24) * 3_600_000);
     if (expiry.getTime() <= now.getTime() || expiry.getTime() > now.getTime() + 168 * 3_600_000) throw new NativeError("invalid_expiry");
-    return writeEdition(userId, data.itemIds, "curated", expiry, now, data.title ?? null, data.summary ?? (data.overview?.map((block) => `${block.heading}: ${block.segments.map((segment) => segment.text).join("")}`).join("\n\n").slice(0, 2000).replace(/[\uD800-\uDBFF]$/, "") ?? null), data.overview ?? null);
+    return writeEdition(userId, data.itemIds, "curated", expiry, now, data.title ?? null, data.summary ?? (data.overview?.map((block) => `${block.heading}: ${block.segments.map((segment) => segment.text).join("")}`).join("\n\n").slice(0, 2000).replace(/[\uD800-\uDBFF]$/, "") ?? null), data.overview ?? null, data.layout ?? null);
   }, now);
 }
 

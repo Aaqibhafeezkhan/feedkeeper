@@ -619,7 +619,7 @@ export function createMcpServerForUser(userId: number, scope: TokenScope): McpSe
 
   if (scope === "write") server.registerTool("publish_edition", {
     title: "Publish curated edition",
-    description: "Publishes an ordered list of 1 to 24 accessible article IDs. Curated editions override automatic ones until expiry (default 24 hours, maximum seven days). App-only hidden sections and muted keywords are respected. Supply the revision from get_edition as expectedRevision and a UUID requestId for conflict detection and safe retries. Optional title and summary are editorial text; original articles stay unchanged.",
+    description: "Publishes an ordered list of 1 to 24 accessible article IDs. Curated editions override automatic ones until expiry (default 24 hours, maximum seven days). App-only hidden sections and muted keywords are respected. Supply the revision from get_edition as expectedRevision and a UUID requestId for conflict detection and safe retries. Optional title and summary are editorial text; original articles stay unchanged. Optional layout (version 1) says how the issue is set: a character (dominant, calm or briefing) and blocks (lead, dossier, feature, standard, briefs, photo, quote) that reference the issue's article IDs at most once each; it never changes the articles.",
     inputSchema: publishEditionFields,
   }, async (input) => capabilityAction("editions", () => publishCuratedEdition(userId, input)));
 

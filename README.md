@@ -252,7 +252,7 @@ Every tool call is scoped to the signed-in user — a client can only see and ma
 | `import_opml` | Import feeds from an OPML 2.0 XML string |
 | `get_edition` | Read the current issue, source and revision, including expired or dismissed state |
 | `get_edition_candidates` | Get compact candidates respecting app section preferences and muted keywords |
-| `publish_edition` | Publish an ordered curated issue with optional structured topic overviews, expiry, revision checks and safe retries |
+| `publish_edition` | Publish an ordered curated issue with optional structured topic overviews and a presentation layout, expiry, revision checks and safe retries |
 | `generate_edition` | Ensure an automatic issue exists, or explicitly request a new selection |
 | `dismiss_edition` | Dismiss the shared issue with revision and replay protection |
 | `get_native_preferences` | Read app-only section order, newspaper visibility and edition preferences |

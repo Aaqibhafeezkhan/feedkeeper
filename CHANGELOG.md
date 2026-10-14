@@ -4,6 +4,12 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+- Curated editions can carry a presentation plan (`layout`), published through `publish_edition` and advertised as the `edition.layout` feature. It names a character for the day (one topic dominates, a calm day, many short items) and blocks in reading order: lead, dossier (an overview topic with its stories), feature, standard, briefs, photo and quote. It says what matters and what belongs together; clients decide how to set it. The plan is validated against the issue, returned with the edition and in sync, and ignored by older clients. Issues without a plan are unchanged.
+
+### Upgrade notes
+- Migration 0034 adds a nullable column to the editions table and changes nothing else.
+
 ## [0.25.1] - 2026-10-13
 
 ### Changed

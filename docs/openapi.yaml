@@ -911,7 +911,88 @@ components:
               minItems: 1
               maxItems: 5
               items: { $ref: "#/components/schemas/EditionOverviewBlock" }
+        layout:
+          description: Optional presentation plan; present when edition.layout is advertised. Null for automatic and unstructured issues. Clients map the roles onto their own columns, sizes and type and set stories the plan does not cover, or blocks they do not know, as plain stories in the order of itemIds.
+          oneOf:
+            - { type: "null" }
+            - { $ref: "#/components/schemas/EditionLayout" }
         itemIds: { type: array, minItems: 1, maxItems: 24, uniqueItems: true, items: { type: integer, minimum: 1 } }
+    EditionLayout:
+      type: object
+      required: [version, character, blocks]
+      additionalProperties: false
+      properties:
+        version: { type: integer, const: 1 }
+        character:
+          type: string
+          enum: [dominant, calm, briefing]
+          description: One topic dominates the day, a quiet day with room for pictures, or many short items
+        blocks:
+          type: array
+          minItems: 1
+          maxItems: 24
+          description: In reading order. Each story of the issue appears in at most one block; the lead is first.
+          items: { $ref: "#/components/schemas/EditionLayoutBlock" }
+    EditionLayoutBlock:
+      description: Discriminated by type. Unknown types must be set as plain stories by clients.
+      oneOf:
+        - type: object
+          required: [type, itemId]
+          additionalProperties: false
+          properties:
+            type: { type: string, const: lead }
+            itemId: { type: integer, minimum: 1 }
+            kicker: { type: string, minLength: 1, maxLength: 40, description: One short phrase without closing punctuation }
+        - type: object
+          required: [type, topic, itemIds]
+          additionalProperties: false
+          properties:
+            type: { type: string, const: dossier }
+            topic: { type: integer, minimum: 1, maximum: 5, description: 1-based position in overview; one dossier per topic }
+            itemIds: { type: array, minItems: 1, maxItems: 4, items: { type: integer, minimum: 1 } }
+        - type: object
+          required: [type, itemId]
+          additionalProperties: false
+          properties:
+            type: { type: string, const: feature }
+            itemId: { type: integer, minimum: 1 }
+            kicker: { type: string, minLength: 1, maxLength: 40 }
+        - type: object
+          required: [type, stories]
+          additionalProperties: false
+          properties:
+            type: { type: string, const: standard }
+            stories:
+              type: array
+              minItems: 1
+              maxItems: 3
+              items:
+                type: object
+                required: [itemId]
+                additionalProperties: false
+                properties:
+                  itemId: { type: integer, minimum: 1 }
+                  kicker: { type: string, minLength: 1, maxLength: 40 }
+        - type: object
+          required: [type, itemIds]
+          additionalProperties: false
+          properties:
+            type: { type: string, const: briefs }
+            itemIds: { type: array, minItems: 2, maxItems: 8, items: { type: integer, minimum: 1 } }
+            title: { type: string, minLength: 1, maxLength: 60 }
+        - type: object
+          required: [type, itemId]
+          additionalProperties: false
+          properties:
+            type: { type: string, const: photo }
+            itemId: { type: integer, minimum: 1 }
+        - type: object
+          required: [type, itemId, text]
+          additionalProperties: false
+          properties:
+            type: { type: string, const: quote }
+            itemId: { type: integer, minimum: 1 }
+            text: { type: string, minLength: 1, maxLength: 160, description: Quoted from the article; the issuer vouches for it }
     EditionOverviewBlock:
       type: object
       required: [id, heading, segments]

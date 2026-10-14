@@ -112,6 +112,46 @@ test("server editions and app preferences keep devices in step without changing 
     assert.throws(() => cachedEditionSources(user(), [a]), /item_not_found/);
   });
 
+  await t.test("layouts persist with the issue, replay and sync, and are checked against it", () => {
+    const owner = user(), source = feed(owner);
+    const [a, b, c, d] = [article(source), article(source), article(source), article(source)];
+    const overview = [{ heading: "Topic", segments: [{ text: "See " }, { text: "source", itemId: b }] }];
+    const layout = {
+      version: 1 as const, character: "dominant" as const,
+      blocks: [
+        { type: "lead" as const, itemId: a, kicker: "Aviation" },
+        { type: "dossier" as const, topic: 1, itemIds: [b] },
+        { type: "standard" as const, stories: [{ itemId: c }] },
+      ],
+    };
+    const input = { itemIds: [a, b, c, d], overview, layout, requestId: randomUUID(), expectedRevision: 0 };
+    const first = editions.publishCuratedEdition(owner, input, now);
+    assert.deepEqual(first.layout, layout);
+    assert.deepEqual(editions.publishCuratedEdition(owner, input, now), first);
+    assert.deepEqual(editions.getEdition(owner, now)?.layout, layout);
+    assert.deepEqual(listChanges(owner, 0).changes.find(c => c.entity === "edition")?.data?.layout, layout);
+
+    const publish = (changes: Record<string, unknown>) => editions.publishCuratedEdition(owner, { itemIds: [a, b, c, d], overview, ...changes } as never, now);
+    const withBlocks = (blocks: unknown[]) => ({ layout: { ...layout, blocks } });
+    assert.throws(() => publish(withBlocks([{ type: "banner", itemId: a }])), isError("invalid_layout"), "unknown block types are rejected when publishing");
+    assert.throws(() => publish(withBlocks([{ type: "lead", itemId: a, colour: "red" }])), isError("invalid_layout"), "unknown fields are rejected");
+    assert.throws(() => publish({ layout: { ...layout, character: "loud" } }), isError("invalid_layout"));
+    assert.throws(() => publish({ layout: { ...layout, version: 2 } }), isError("invalid_layout"));
+    assert.throws(() => publish(withBlocks([{ type: "lead", itemId: a, kicker: "A full sentence." }])), isError("invalid_layout"), "a kicker is a label, not a sentence");
+    assert.throws(() => publish(withBlocks([{ type: "briefs", itemIds: [a] }])), isError("invalid_layout"), "briefs need at least two stories");
+    assert.throws(() => publish(withBlocks([])), isError("invalid_layout"));
+    assert.throws(() => publish(withBlocks([{ type: "feature", itemId: a }, { type: "lead", itemId: b }])), isError("invalid_layout"), "the lead stands first");
+    assert.throws(() => publish(withBlocks([{ type: "feature", itemId: a }, { type: "photo", itemId: a }])), isError("invalid_layout"), "a story appears once");
+    assert.throws(() => publish(withBlocks([{ type: "dossier", topic: 1, itemIds: [a] }, { type: "dossier", topic: 1, itemIds: [b] }])), isError("invalid_layout"), "a topic has one dossier");
+    assert.throws(() => publish(withBlocks([{ type: "feature", itemId: article(source) }])), isError("invalid_layout_reference"), "stories must be part of the issue");
+    assert.throws(() => publish(withBlocks([{ type: "dossier", topic: 2, itemIds: [a] }])), isError("invalid_layout_reference"), "a dossier needs its topic in the overview");
+    assert.throws(() => editions.publishCuratedEdition(owner, { itemIds: [a], layout: { version: 1, character: "calm", blocks: [{ type: "dossier", topic: 1, itemIds: [a] }] } }, now), isError("invalid_layout_reference"), "no overview, no dossier");
+
+    const plain = editions.publishCuratedEdition(owner, { itemIds: [a, b] }, now);
+    assert.equal(plain.layout, null, "an issue without a plan carries none");
+    assert.equal(editions.getEdition(owner, now)?.layout, null);
+  });
+
   await t.test("automatic selection respects exclusions, diversity, age, tracking URL duplicates and previous issues", () => {
     const owner = user();
     const news = repo.createFolder(owner, "News"), hidden = repo.createFolder(owner, "Hidden");

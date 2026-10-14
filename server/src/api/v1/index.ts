@@ -40,6 +40,7 @@ const FEATURES = [
   "native-preferences",
   "native-preferences.edition-size",
   "edition.overview",
+  "edition.layout",
   "search.fts",
   "account-capabilities",
   "mcp",
