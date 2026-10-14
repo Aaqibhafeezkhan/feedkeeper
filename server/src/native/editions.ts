@@ -1,11 +1,9 @@
-import { hasUserCapability } from "../auth/capabilities.js";
 import { randomUUID } from "node:crypto";
-import cron from "node-cron";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import { canAccessItem } from "../feeds/repository.js";
 import { decodeEntities } from "../feeds/text.js";
-import { editionPeriod, nextEditionBoundary, selectEdition, type EditionCandidate } from "./editionSelection.js";
+import { editionPeriod, selectEdition, type EditionCandidate } from "./editionSelection.js";
 import { getNativePreferences } from "./preferences.js";
 import { checkEditionLayout, editionLayoutSchema, type EditionLayout } from "./editionLayout.js";
 import { NativeError, nativeRequest } from "./requests.js";
@@ -25,7 +23,7 @@ export type EditionOverview = (EditionOverviewInput[number] & { id: string })[];
 export interface ServerEdition {
   id: string;
   revision: number;
-  source: "automatic" | "curated";
+  source: "curated";
   createdAt: string;
   updatedAt: string;
   expiresAt: string;
@@ -33,7 +31,7 @@ export interface ServerEdition {
   title: string | null;
   summary: string | null;
   overview: EditionOverview | null;
-  /** How the writer of the issue wants it set; null for automatic and unstructured issues. */
+  /** How the writer of the issue wants it set; null for unstructured issues. */
   layout: EditionLayout | null;
   preferencesRevision: number;
   itemIds: number[];
@@ -42,7 +40,7 @@ interface EditionRow {
   user_id: number;
   edition_id: string;
   revision: number;
-  source: ServerEdition["source"];
+  source: "automatic" | "curated";
   status: "active" | "expired" | "dismissed";
   created_at: string;
   updated_at: string;
@@ -67,9 +65,9 @@ function storedEdition(userId: number): EditionRow | undefined {
 function serialize(row: EditionRow): ServerEdition {
   const prefs = getNativePreferences(row.user_id);
   return {
-    id: row.edition_id, revision: row.revision, source: row.source,
+    id: row.edition_id, revision: row.revision, source: "curated",
     createdAt: row.created_at, updatedAt: row.updated_at, expiresAt: row.expires_at,
-    period: (row.period?.split(":")[1] as ServerEdition["period"] | undefined) ?? editionPeriod(new Date(row.created_at), prefs.timeZone).period,
+    period: (row.period?.split(":").pop() as ServerEdition["period"] | undefined) ?? editionPeriod(new Date(row.created_at), prefs.timeZone).period,
     title: row.title, summary: row.summary, overview: row.overview ? JSON.parse(row.overview) : null, layout: row.layout ? JSON.parse(row.layout) : null,
     preferencesRevision: row.preferences_revision,
     itemIds: JSON.parse(row.item_ids),
@@ -78,11 +76,14 @@ function serialize(row: EditionRow): ServerEdition {
 export function getEditionState(userId: number, now = new Date()): EditionState {
   const row = storedEdition(userId);
   if (!row) return { revision: 0, status: "none", edition: null };
+  if (row.source !== "curated") return { revision: row.revision, status: "expired", edition: null };
   const status = row.status === "active" && Date.parse(row.expires_at) <= now.getTime() ? "expired" : row.status;
   return { revision: row.revision, status, edition: status === "active" ? serialize(row) : null };
 }
-export function getEdition(userId: number, now = new Date()): ServerEdition | null {
-  return getEditionState(userId, now).edition;
+/** Expiry schedules the next publication; it does not take the last issue away from readers. */
+export function getEdition(userId: number, _now = new Date()): ServerEdition | null {
+  const row = storedEdition(userId);
+  return row?.source === "curated" && row.status !== "dismissed" ? serialize(row) : null;
 }
 function checkRevision(userId: number, expectedRevision: number | undefined, now: Date): void {
   const current = getEditionState(userId, now);
@@ -123,7 +124,14 @@ export const publishEditionFields = {
 const publishSchema = z.object(publishEditionFields).strict().refine((input) => !(input.expiresAt && input.durationHours), "Use expiresAt or durationHours, not both");
 export type PublishEditionInput = z.infer<typeof publishSchema>;
 
-/** Both automatic and MCP editions obey the app's hard exclusions. Read/saved articles
+/** Legacy ensure requests read the latest publication; they never select or publish articles. */
+export const ensureEditionSchema = z.object({
+  requestId: z.uuid(),
+  expectedRevision: z.number().int().min(0).optional(),
+  force: z.boolean().default(false),
+}).strict().refine((input) => !input.force || input.expectedRevision !== undefined, "force requires expectedRevision");
+
+/** Curated publications obey the app's hard exclusions. Read/saved articles
  * may be selected deliberately by an agent, but foreign and muted items cannot be published. */
 export function publishCuratedEdition(userId: number, input: PublishEditionInput, now = new Date()): ServerEdition {
   if (input.layout !== undefined && !editionLayoutSchema.safeParse(input.layout).success) throw new NativeError("invalid_layout");
@@ -180,7 +188,7 @@ export function deleteEdition(userId: number): boolean {
   return existed;
 }
 
-/** The automatic edition looks at every candidate; smaller limits are shortlists for an agent or the curator. */
+/** Bound candidate gathering before building a shortlist for an agent or the curator. */
 const AUTOMATIC_EDITION_LIMIT = 4000;
 
 /** How often each feed appeared in the editions of the last 72 hours, so a feed that was shown a lot waits its turn. */
@@ -287,53 +295,4 @@ export function editionCandidates(userId: number, now = new Date(), limit = 200)
       new Set(scored.map((item) => item.subscriptionId)).size);
   }
   return scored.sort((a, b) => b.score - a.score || b.id - a.id);
-}
-
-export const generateEditionSchema = z.object({
-  requestId: z.uuid(),
-  expectedRevision: z.number().int().min(0).optional(),
-  force: z.boolean().default(false),
-}).strict().refine((input) => !input.force || input.expectedRevision !== undefined, "force requires expectedRevision");
-
-export function generateEdition(userId: number, input: { requestId?: string; expectedRevision?: number; force?: boolean } = {}, now = new Date()): ServerEdition | null {
-  return nativeRequest(userId, input.requestId, "edition.generate", { expectedRevision: input.expectedRevision, force: input.force ?? false }, () => {
-    checkRevision(userId, input.expectedRevision, now);
-    const prefs = getNativePreferences(userId);
-    const period = editionPeriod(now, prefs.timeZone).key;
-    const state = getEditionState(userId, now);
-    if (state.edition) {
-      if (state.edition.source === "curated") {
-        if (input.force) throw new NativeError("curated_edition_active", 409, state);
-        return state.edition;
-      }
-      if (!input.force) return state.edition;
-    }
-    const row = storedEdition(userId);
-    if (!input.force && row?.status === "dismissed" && row.period === period) return null;
-    if (row?.status === "active" && !state.edition) {
-      db.prepare("UPDATE editions SET status = 'expired', revision = revision + 1, updated_at = ? WHERE user_id = ?").run(now.toISOString(), userId);
-    }
-    const chosen = selectEdition(editionCandidates(userId, now, AUTOMATIC_EDITION_LIMIT), prefs);
-    if (!chosen.length) return state.edition;
-    if (state.edition && JSON.stringify(state.edition.itemIds) === JSON.stringify(chosen.map((item) => item.id))) return state.edition;
-    return writeEdition(userId, chosen.map((item) => item.id), "automatic", nextEditionBoundary(now, prefs.timeZone), now);
-  }, now);
-}
-
-/** Only users who opted in by storing preferences or creating an edition are scheduled. */
-export function maintainEditions(now = new Date()): void {
-  const users = db.prepare<[], { user_id: number }>(
-    "SELECT user_id FROM native_preferences UNION SELECT user_id FROM editions",
-  ).all();
-  for (const user of users) {
-    if (!hasUserCapability(user.user_id, "editions")) continue;
-    try { generateEdition(user.user_id, {}, now); }
-    catch (error) { console.error("[edition] could not refresh an edition", error instanceof Error ? error.message : "unknown error"); }
-  }
-  // Receipts remain valid for at least 35 days, beyond the native offline window.
-  db.prepare("DELETE FROM native_requests WHERE created_at < ?").run(new Date(now.getTime() - 35 * 86_400_000).toISOString());
-}
-export function startEditionScheduler(): void {
-  maintainEditions();
-  cron.schedule("* * * * *", () => maintainEditions());
 }

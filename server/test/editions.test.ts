@@ -152,48 +152,13 @@ test("server editions and app preferences keep devices in step without changing 
     assert.equal(editions.getEdition(owner, now)?.layout, null);
   });
 
-  await t.test("automatic selection respects exclusions, diversity, age, tracking URL duplicates and previous issues", () => {
-    const owner = user();
-    const news = repo.createFolder(owner, "News"), hidden = repo.createFolder(owner, "Hidden");
-    const busy = feed(owner, news.id), quiet = feed(owner, news.id), excluded = feed(owner, hidden.id), unfiled = feed(owner);
-    const preferred = article(quiet, { title: "The slower source has a useful report", age: 1 });
-    for (let i = 0; i < 30; i++) article(busy);
-    const duplicateA = article(busy, { link: "https://test.local/shared?utm_source=one" });
-    const duplicateB = article(quiet, { link: "https://test.local/shared?utm_source=two#top" });
-    const old = article(quiet, { age: 8 * 24 });
-    const read = article(quiet); repo.markItemRead(owner, read);
-    const muted = article(quiet, { title: "A forbidden topic" }); repo.addMutedKeyword(owner, "forbidden");
-    const invisible = article(excluded), loose = article(unfiled);
-    prefs.patchNativePreferences(owner, { requestId: randomUUID(), expectedRevision: 0, hiddenFolderIds: [hidden.id], showUnfiled: false, editionSize: 8 });
-    const first = editions.generateEdition(owner, { requestId: randomUUID() }, now)!;
-    assert.equal(first.source, "automatic");
-    assert.equal(first.itemIds.length, 8);
-    assert.ok(first.itemIds.includes(preferred));
-    assert.ok(!(first.itemIds.includes(duplicateA) && first.itemIds.includes(duplicateB)));
-    for (const id of [old, read, muted, invisible, loose]) assert.ok(!first.itemIds.includes(id));
-    repo.markItemRead(owner, first.itemIds[0]);
-    article(busy);
-    assert.deepEqual(editions.generateEdition(owner, {}, now)?.itemIds, first.itemIds, "refresh and reading keep an issue stable");
-    const next = editions.generateEdition(owner, { force: true, expectedRevision: first.revision }, now)!;
-    assert.ok(next.id !== first.id);
-    assert.ok(next.revision > first.revision);
-    assert.equal(next.itemIds.some((id) => first.itemIds.includes(id)), false, "unoffered stories precede repetitions");
-    assert.throws(() => editions.publishCuratedEdition(owner, { itemIds: [invisible] }, now), isError("item_excluded"));
-    assert.throws(() => editions.publishCuratedEdition(owner, { itemIds: [muted] }, now), isError("item_excluded"));
-    assert.throws(() => editions.publishCuratedEdition(user(), { itemIds: [preferred] }, now), isError("item_not_found"));
-  });
-
-  await t.test("small libraries fill fairly and a reading budget never drops the only long article", () => {
+  await t.test("preferences and candidates never publish an edition", () => {
     const owner = user(), source = feed(owner);
-    const ids = Array.from({ length: 10 }, () => article(source));
-    assert.equal(editions.generateEdition(owner, {}, now)?.itemIds.length, 10);
+    article(source);
     prefs.patchNativePreferences(owner, { requestId: randomUUID(), expectedRevision: 0, readingMinutes: 5 });
-    assert.equal(editions.generateEdition(owner, { force: true, expectedRevision: 1 }, now)?.itemIds.length, 5);
-    const longOwner = user(), longSource = feed(longOwner), long = article(longSource);
-    db.prepare("UPDATE items SET full_content_html = ? WHERE id = ?").run("long ".repeat(10_000), long);
-    prefs.patchNativePreferences(longOwner, { requestId: randomUUID(), expectedRevision: 0, readingMinutes: 5 });
-    assert.deepEqual(editions.generateEdition(longOwner, {}, now)?.itemIds, [long]);
-    assert.equal(new Set(ids).size, 10);
+    assert.ok(editions.editionCandidates(owner, now, 24).length > 0);
+    assert.equal(editions.getEdition(owner, now), null);
+    assert.equal(editions.getEditionState(owner, now).revision, 0);
   });
 
   await t.test("curation is finite, protected from automation and publishes atomically with receipts", () => {
@@ -202,8 +167,7 @@ test("server editions and app preferences keep devices in step without changing 
     const first = editions.publishCuratedEdition(owner, input, now);
     assert.equal(Date.parse(first.expiresAt) - now.getTime(), 24 * 3_600_000);
     assert.deepEqual(first.itemIds, [b, a]);
-    assert.equal(editions.generateEdition(owner, {}, now)?.id, first.id);
-    assert.throws(() => editions.generateEdition(owner, { force: true, expectedRevision: 1 }, now), isError("curated_edition_active"));
+    assert.equal(editions.getEdition(owner, now)?.id, first.id);
     assert.throws(() => editions.publishCuratedEdition(owner, { itemIds: [a], expectedRevision: 0 }, now), isError("revision_conflict"));
     assert.throws(() => editions.publishCuratedEdition(owner, { itemIds: [a, a] }, now), isError("duplicate_item_ids"));
     assert.throws(() => editions.publishCuratedEdition(owner, { itemIds: [a], expiresAt: now.toISOString() }, now), isError("invalid_expiry"));
@@ -217,8 +181,8 @@ test("server editions and app preferences keep devices in step without changing 
     const dismissed = editions.dismissEdition(owner, { expectedRevision: 2, requestId: randomUUID() }, now);
     assert.equal(dismissed.revision, 3);
     assert.equal(dismissed.status, "dismissed");
-    assert.equal(editions.generateEdition(owner, {}, now), null, "dismissal suppresses the same slot");
-    const fresh = editions.generateEdition(owner, { force: true, expectedRevision: 3 }, now)!;
+    assert.equal(editions.getEdition(owner, now), null, "explicit dismissal is respected");
+    const fresh = editions.publishCuratedEdition(owner, { itemIds: [a], expectedRevision: 3 }, now);
     assert.equal(fresh.revision, 4);
     const cursor = currentSeq(owner);
     editions.dismissEdition(owner, { expectedRevision: 4 }, now);
@@ -228,35 +192,19 @@ test("server editions and app preferences keep devices in step without changing 
     assert.equal(editions.getEditionState(owner, now).revision, 5);
   });
 
-  await t.test("expiry produces a sync tombstone or automatic replacement and does not opt web-only users in", () => {
-    const owner = user(), source = feed(owner), a = article(source);
-    const first = editions.publishCuratedEdition(owner, { itemIds: [a], durationHours: 0.001 }, now);
-    repo.markItemRead(owner, a);
-    const cursor = currentSeq(owner);
+  await t.test("expiry keeps the last curated publication readable and creates no replacement", () => {
+    const owner = user(), source = feed(owner), selected = article(source);
+    const first = editions.publishCuratedEdition(owner, { itemIds: [selected], durationHours: 0.001 }, now);
+    const sequence = currentSeq(owner);
     const later = new Date(now.getTime() + 10_000);
-    editions.maintainEditions(later);
-    assert.equal(editions.getEditionState(owner, later).status, "expired");
-    assert.ok(editions.getEditionState(owner, later).revision > first.revision);
-    assert.equal(listChanges(owner, cursor).changes.find((c) => c.entity === "edition")?.op, "delete");
-    const b = article(source);
-    editions.maintainEditions(later);
-    assert.deepEqual(editions.getEdition(owner, later)?.itemIds, [b]);
-    assert.equal(editions.getEdition(owner, later)?.source, "automatic");
-    const webOnly = user(); article(feed(webOnly));
-    editions.maintainEditions(later);
-    assert.equal(editions.getEditionState(webOnly, later).revision, 0);
+    article(source);
+    assert.equal(editions.getEditionState(owner, later).status, "expired", "curators can publish the next scheduled issue");
+    assert.equal(editions.getEditionState(owner, later).revision, first.revision);
+    assert.deepEqual(editions.getEdition(owner, later), first, "readers keep the exact issue, including its original period");
+    assert.equal(currentSeq(owner), sequence, "checking expiry does not write or generate anything");
   });
 
-  await t.test("dismissing yesterday's curation suppresses the current slot rather than its publication slot", () => {
-    const owner = user(), source = feed(owner), a = article(source);
-    const curated = editions.publishCuratedEdition(owner, { itemIds: [a], durationHours: 48 }, now);
-    const later = new Date(now.getTime() + 13 * 3_600_000);
-    editions.dismissEdition(owner, { expectedRevision: curated.revision }, later);
-    assert.equal(editions.generateEdition(owner, {}, later), null);
-    assert.ok(editions.generateEdition(owner, {}, new Date(later.getTime() + 13 * 3_600_000)));
-  });
-
-  await t.test("active issues survive all cleanup rules and unsubscribing until they expire", () => {
+  await t.test("the last curated issue survives cleanup and unsubscribing until explicitly dismissed", () => {
     const owner = user(), source = feed(owner);
     const selected = article(source, { age: 100 * 24 });
     const discarded = article(source, { age: 90 * 24 });
@@ -286,7 +234,7 @@ test("server editions and app preferences keep devices in step without changing 
     const call = async (path: string, method = "GET", body?: object, token = writer) => {
       const response = await fetch(base + path, { method, headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
       const text = await response.text();
-      return { status: response.status, body: text ? JSON.parse(text) : null };
+      return { status: response.status, body: text && response.headers.get("content-type")?.includes("application/json") ? JSON.parse(text) : null };
     };
     try {
       assert.equal((await call("/edition")).status, 404);
@@ -295,12 +243,13 @@ test("server editions and app preferences keep devices in step without changing 
       assert.equal((await call("/native-preferences")).body.revision, 0);
       assert.equal((await call("/edition/generate", "POST", { requestId: randomUUID() }, reader)).status, 403);
       assert.equal((await call("/native-preferences", "PATCH", { requestId: randomUUID(), expectedRevision: 0 }, reader)).status, 403);
-      assert.equal((await call("/edition/generate", "POST", { requestId: randomUUID(), force: true })).status, 400);
-      const generated = await call("/edition/generate", "POST", { requestId: randomUUID() });
-      assert.equal(generated.status, 200);
-      assert.equal(generated.body.source, "automatic");
-      const curated = editions.publishCuratedEdition(owner, { itemIds: [b, a], expectedRevision: generated.body.revision });
+      assert.equal((await call("/edition/generate", "POST", { requestId: randomUUID() })).status, 404);
+      const curated = editions.publishCuratedEdition(owner, { itemIds: [b, a], expectedRevision: 0 });
       assert.deepEqual((await call("/edition")).body.items.map((item: { id: number }) => item.id), [b, a]);
+      const ensured = await call("/edition/generate", "POST", { requestId: randomUUID(), force: true, expectedRevision: curated.revision });
+      assert.equal(ensured.status, 200);
+      assert.equal(ensured.body.id, curated.id);
+      assert.equal(editions.getEditionState(owner).revision, curated.revision, "legacy ensure requests never publish or replace an issue");
       assert.equal((await call("/edition/candidates?limit=1")).body.candidates.length, 1);
       assert.equal((await call("/edition/candidates?limit=201")).status, 400);
       assert.equal((await call("/edition", "DELETE", { expectedRevision: 0, requestId: randomUUID() })).status, 409);

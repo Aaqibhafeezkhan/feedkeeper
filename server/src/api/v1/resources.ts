@@ -42,7 +42,7 @@ import { SsrfBlockedError, normalizeUrlCandidate } from "../../feeds/ssrfGuard.j
 import { buildOverview } from "../../mcp/digest.js";
 import { decodeCursor, encodeCursor } from "../../mcp/items.js";
 import { readingPositions, serializeItem, serializeSubscriptionDetail } from "./serialize.js";
-import { dismissEdition, editionCandidates, generateEdition, generateEditionSchema, getEdition, getEditionState, type ServerEdition } from "../../native/editions.js";
+import { dismissEdition, editionCandidates, ensureEditionSchema, getEdition, getEditionState, type ServerEdition } from "../../native/editions.js";
 import { getNativePreferences, patchNativePreferences } from "../../native/preferences.js";
 import { NativeError } from "../../native/requests.js";
 import { capabilityDenial, hasUserCapability, requireCapability } from "../../auth/capabilities.js";
@@ -561,7 +561,7 @@ function editionResponse(req: Request, edition: ServerEdition) {
     .filter((row): row is NonNullable<typeof row> => Boolean(row));
   const progress = readingPositions(req.user!.id, rows.map((r) => r.id));
   const hasNotes = itemsWithNotes(req.user!.id, rows.map((r) => r.id));
-  const prepared = prepare(rows, req, "original");
+  const prepared = prepare(rows, req, req.query.images === "proxy" ? "proxy" : "original");
   return {
     ...edition,
     items: prepared.map((row) => serializeItem(row, progress, false, hasNotes.has(row.id))),
@@ -605,12 +605,17 @@ resourcesRouter.get("/edition/candidates", requireCapability("editions"), (req, 
   res.json({ preferences: getNativePreferences(req.user!.id), current: getEditionState(req.user!.id), candidates: editionCandidates(req.user!.id, new Date(), parsed.data.limit) });
 });
 
+// Older clients may still ensure an edition before reading. Keep that request read-only.
 resourcesRouter.post("/edition/generate", requireCapability("editions"), (req, res) => {
-  const parsed = generateEditionSchema.safeParse(req.body);
+  const parsed = ensureEditionSchema.safeParse(req.body);
   if (!parsed.success) return invalid(res, parsed.error.flatten());
   nativeAction(res, () => {
-    const edition = generateEdition(req.user!.id, parsed.data);
-    if (!edition) return void res.status(404).json({ error: "no_edition", current: getEditionState(req.user!.id) });
+    const current = getEditionState(req.user!.id);
+    if (parsed.data.expectedRevision !== undefined && parsed.data.expectedRevision !== current.revision) {
+      throw new NativeError("revision_conflict", 409, current);
+    }
+    const edition = getEdition(req.user!.id);
+    if (!edition) return void res.status(404).json({ error: "no_edition", current });
     res.json(editionResponse(req, edition));
   });
 });

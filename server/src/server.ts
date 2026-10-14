@@ -18,7 +18,7 @@ import { installPollingShutdown, startPollingScheduler } from "./feeds/poller.js
 import { startCleanupScheduler } from "./feeds/cleanup.js";
 import { repairEncodedText } from "./feeds/repository.js";
 import { pruneArchive, scheduleMissingArchives } from "./feeds/archive.js";
-import { startEditionScheduler } from "./native/editions.js";
+import { startNativeRequestCleanup } from "./native/requests.js";
 import { startLeadBackfill } from "./feeds/lead.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -34,7 +34,7 @@ if (pendingArchives > 0) console.log(`[archive] archiving ${pendingArchives} sav
 startPollingScheduler();
 startFullTextScheduler();
 startCleanupScheduler();
-startEditionScheduler();
+startNativeRequestCleanup();
 
 const app = express();
 

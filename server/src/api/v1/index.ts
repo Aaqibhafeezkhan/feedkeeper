@@ -36,7 +36,6 @@ const FEATURES = [
   "folder-icons",
   "notes",
   "edition",
-  "edition.automatic",
   "edition.revisions",
   "native-preferences",
   "native-preferences.edition-size",

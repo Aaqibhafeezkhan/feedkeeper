@@ -128,7 +128,7 @@ export function runCleanup(custom?: Partial<RetentionSettings>): CleanupResult {
            AND i.id NOT IN (SELECT item_id FROM item_notes)
            AND i.feed_id NOT IN (SELECT id FROM feeds WHERE is_system_inbox = 1)
            AND NOT EXISTS (SELECT 1 FROM editions e, json_each(e.item_ids) selected
-             WHERE selected.value = i.id AND e.status = 'active' AND julianday(e.expires_at) > julianday('now'))
+             WHERE selected.value = i.id AND e.source = 'curated' AND e.status <> 'dismissed')
            AND i.id IN (SELECT item_id FROM item_reads)
            AND NOT EXISTS (
              SELECT 1 FROM subscriptions s
@@ -149,7 +149,7 @@ export function runCleanup(custom?: Partial<RetentionSettings>): CleanupResult {
          AND id NOT IN (SELECT item_id FROM item_notes)
          AND feed_id NOT IN (SELECT id FROM feeds WHERE is_system_inbox = 1)
          AND NOT EXISTS (SELECT 1 FROM editions e, json_each(e.item_ids) selected
-           WHERE selected.value = items.id AND e.status = 'active' AND julianday(e.expires_at) > julianday('now'))
+           WHERE selected.value = items.id AND e.source = 'curated' AND e.status <> 'dismissed')
          AND COALESCE(julianday(published_at), julianday(created_at)) <= julianday('now', '-' || ? || ' days')`,
     ).run(settings.retentionMaxDays);
     deletedOldItems = res.changes;
@@ -163,7 +163,7 @@ export function runCleanup(custom?: Partial<RetentionSettings>): CleanupResult {
          AND id NOT IN (SELECT item_id FROM item_notes)
          AND feed_id NOT IN (SELECT id FROM feeds WHERE is_system_inbox = 1)
          AND NOT EXISTS (SELECT 1 FROM editions e, json_each(e.item_ids) selected
-           WHERE selected.value = items.id AND e.status = 'active' AND julianday(e.expires_at) > julianday('now'))
+           WHERE selected.value = items.id AND e.source = 'curated' AND e.status <> 'dismissed')
          AND id IN (
            SELECT id FROM (
              SELECT id, ROW_NUMBER() OVER (

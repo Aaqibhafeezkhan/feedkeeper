@@ -86,7 +86,7 @@ Started without a `SESSION_SECRET` (for example from one of the templates below)
 - **Keyword mute filters** — cut through information overload by filtering out articles matching specific keywords before they reach your stream.
 - **Health monitoring** — clear status indicators show polling health, consecutive fetch errors, and timestamps so you instantly spot dead feeds.
 - **Universal Inbox (Read-it-Later)** — save web clippings, URLs, and personal notes directly to your personal inbox from any browser, share extension, or MCP client. Full article contents and lead images are automatically extracted and archived offline.
-- **Curated editions & daily briefings** — finite morning, midday, and evening editions. Generated automatically by the server's heuristic scheduler or curated by external AI agents via MCP (e.g. Claude, local LLMs, or custom scripts), with support for structured, linked editorial overviews.
+- **Curated editions & daily briefings** — finite morning, midday, and evening editions. Curated by external agents via MCP (e.g. Claude, local LLMs, or custom scripts), with structured, linked editorial overviews. The latest publication remains available until its successor is published.
 - **Automated database housekeeping** — sensible defaults prune read articles, enforce maximum item retention, and run SQLite `VACUUM` on schedule to keep storage lean.
 - **Remote MCP access** — stream items directly into Claude or any MCP-compatible environment via standard Streamable HTTP, with read-only or read-write tokens, OAuth sign-in for connectors such as ChatGPT and Claude (consent page, PKCE, revocable in Settings), and cursor-based paging for incremental sync.
 - **Privacy & self-hosting first** — a single Node.js process and one SQLite file. No external database engines, no telemetry, no tracking.
@@ -253,7 +253,7 @@ Every tool call is scoped to the signed-in user — a client can only see and ma
 | `get_edition` | Read the current issue, source and revision, including expired or dismissed state |
 | `get_edition_candidates` | Get compact candidates respecting app section preferences and muted keywords |
 | `publish_edition` | Publish an ordered curated issue with optional structured topic overviews and a presentation layout, expiry, revision checks and safe retries |
-| `generate_edition` | Ensure an automatic issue exists, or explicitly request a new selection |
+| `generate_edition` | Compatibility request that reads the latest curated publication without changing it |
 | `dismiss_edition` | Dismiss the shared issue with revision and replay protection |
 | `get_native_preferences` | Read app-only section order, newspaper visibility and edition preferences |
 | `update_native_preferences` | Patch shared app preferences without changing the web reader |
@@ -265,7 +265,7 @@ Read-only tokens expose only the tools that leave FeedKeeper data unchanged. `ge
 
 ## Native apps
 
-A native app for **iOS, iPadOS and macOS** is in development. It uses the API under `/api/v1`, which is open and described in [docs/openapi.yaml](docs/openapi.yaml): pair a device with a QR code from **Settings → Devices**, sync your subscriptions and reading state incrementally, keep articles offline, and queue changes made without a connection. The API also provides background article preparation (`/items/prepare`), full-text search with FTS5, synchronized article notes, SF Symbols for sections/categories, a personal inbox (`/inbox`), and shared automatic or MCP-curated editions with linked overviews. App-only section order and newspaper visibility sync without changing the web reader. See [the edition contract](docs/design/editions.md) for generation, priorities, preferences and offline handling. Native push through an external relay remains planned (see [docs/design/native-api.md](docs/design/native-api.md)).
+A native app for **iOS, iPadOS and macOS** is in development. It uses the API under `/api/v1`, which is open and described in [docs/openapi.yaml](docs/openapi.yaml): pair a device with a QR code from **Settings → Devices**, sync your subscriptions and reading state incrementally, keep articles offline, and queue changes made without a connection. The API also provides background article preparation (`/items/prepare`), full-text search with FTS5, synchronized article notes, SF Symbols for sections/categories, a personal inbox (`/inbox`), and shared MCP-curated editions with linked overviews that stay readable between publications. App-only section order and newspaper visibility sync without changing the web reader. See [the edition contract](docs/design/editions.md) for publication, preferences and offline handling. Native push through an external relay remains planned (see [docs/design/native-api.md](docs/design/native-api.md)).
 Third-party clients are welcome to build on the same API — see [docs/building-clients.md](docs/building-clients.md) for a getting-started guide.
 
 ## Security

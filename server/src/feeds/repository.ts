@@ -149,7 +149,7 @@ export function removeFeedIfUnused(feedId: number): void {
   db.prepare(
     `DELETE FROM items WHERE feed_id = ? AND id NOT IN (SELECT item_id FROM item_bookmarks) AND id NOT IN (SELECT item_id FROM item_notes)
       AND NOT EXISTS (SELECT 1 FROM editions e, json_each(e.item_ids) selected
-        WHERE selected.value = items.id AND e.status = 'active' AND julianday(e.expires_at) > julianday('now'))`,
+        WHERE selected.value = items.id AND e.source = 'curated' AND e.status <> 'dismissed')`,
   ).run(feedId);
   db.prepare("DELETE FROM feeds WHERE id = ? AND is_system_inbox = 0 AND NOT EXISTS (SELECT 1 FROM items WHERE feed_id = ?)").run(feedId, feedId);
 }
@@ -163,7 +163,7 @@ export function removeUnusedFeeds(): number {
        AND NOT EXISTS (SELECT 1 FROM items i JOIN item_bookmarks b ON b.item_id = i.id WHERE i.feed_id = feeds.id)
        AND NOT EXISTS (SELECT 1 FROM items i JOIN item_notes n ON n.item_id = i.id WHERE i.feed_id = feeds.id)
        AND NOT EXISTS (SELECT 1 FROM items i, editions e, json_each(e.item_ids) selected
-         WHERE i.feed_id = feeds.id AND selected.value = i.id AND e.status = 'active' AND julianday(e.expires_at) > julianday('now'))`,
+         WHERE i.feed_id = feeds.id AND selected.value = i.id AND e.source = 'curated' AND e.status <> 'dismissed')`,
   ).run().changes;
 }
 
@@ -177,7 +177,7 @@ export function canAccessItem(userId: number, itemId: number): boolean {
            OR EXISTS (SELECT 1 FROM item_bookmarks b WHERE b.item_id = i.id AND b.user_id = ?)
            OR EXISTS (SELECT 1 FROM item_notes n WHERE n.item_id = i.id AND n.user_id = ?)
            OR EXISTS (SELECT 1 FROM editions e, json_each(e.item_ids) selected WHERE e.user_id = ?
-             AND selected.value = i.id AND e.status = 'active' AND julianday(e.expires_at) > julianday('now')))`,
+             AND selected.value = i.id AND e.source = 'curated' AND e.status <> 'dismissed'))`,
     ).get(itemId, userId, userId, userId, userId),
   );
 }
@@ -487,7 +487,7 @@ export function findItemForUser(userId: number, itemId: number): ReturnType<type
      LEFT JOIN item_notes n ON n.item_id = i.id AND n.user_id = ?
      WHERE i.id = ? AND (s.id IS NOT NULL OR b.item_id IS NOT NULL OR n.item_id IS NOT NULL OR
        EXISTS (SELECT 1 FROM editions e, json_each(e.item_ids) selected WHERE e.user_id = ?
-         AND selected.value = i.id AND e.status = 'active' AND julianday(e.expires_at) > julianday('now')))`,
+         AND selected.value = i.id AND e.source = 'curated' AND e.status <> 'dismissed'))`,
   ).get(userId, userId, userId, userId, itemId, userId);
 }
 

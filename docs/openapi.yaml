@@ -568,9 +568,9 @@ paths:
       tags: [Edition]
       summary: Central curated edition
       description: |
-        The active automatic or MCP-curated issue, preserving itemIds order. Reading and
-        refreshing do not reshuffle it. This GET never generates an issue. Expired and dismissed
-        issues return 404 with current EditionState; network errors must not discard offline copies.
+        The latest curated issue, preserving itemIds order even after its publication window expires. Reading and
+        refreshing do not reshuffle it. This GET never generates an issue.
+        A missing or explicitly dismissed issue returns 404 with current EditionState; network errors must not discard offline copies.
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Edition" } } } }
         "404": { description: "no_edition, with current EditionState", content: { application/json: { schema: { $ref: "#/components/schemas/EditionError" } } } }
@@ -578,8 +578,8 @@ paths:
       tags: [Edition]
       summary: Dismiss or delete active curated edition
       description: |
-        Dismisses the shared issue and retains its revision. Automatic scheduling waits until
-        the next time slot. New clients supply expectedRevision and requestId; an empty body
+        Dismisses the shared issue and retains its revision. A producer must publish its replacement.
+        New clients supply expectedRevision and requestId; an empty body
         remains supported for older clients. The receipt is retained for at least 35 days.
       requestBody:
         content:
@@ -624,13 +624,9 @@ paths:
   /edition/generate:
     post:
       tags: [Edition]
-      summary: Ensure an automatic issue exists or request a new selection
-      description: |
-        Defaults to keeping an active issue, including a curated one. force=true requires
-        expectedRevision and never replaces active curation; dismiss that issue explicitly first.
-        An unchanged selection keeps its ID and revision. With no eligible articles or a dismissal
-        in the current slot this returns 404. Reading is not a trigger for replacement.
-        requestId replays the original result for at least 35 days; a new action needs a new UUID.
+      summary: Read the latest curated issue (legacy compatibility endpoint)
+      deprecated: true
+      description: Legacy ensure requests return the last curated publication. No request, including force, selects or publishes articles. expectedRevision still detects stale state; publishers use the MCP publish_edition tool.
       requestBody:
         required: true
         content:
@@ -642,18 +638,18 @@ paths:
               properties:
                 requestId: { type: string, format: uuid }
                 expectedRevision: { type: integer, minimum: 0 }
-                force: { type: boolean, default: false, description: Requires expectedRevision when true }
+                force: { type: boolean, default: false, description: Requires expectedRevision when true; never publishes a replacement }
       responses:
         "403": { $ref: "#/components/responses/CapabilityDenied" }
-        "200": { description: Active issue, content: { application/json: { schema: { $ref: "#/components/schemas/Edition" } } } }
+        "200": { description: Latest curated issue, content: { application/json: { schema: { $ref: "#/components/schemas/Edition" } } } }
         "400": { $ref: "#/components/responses/Invalid" }
         "404": { description: "no_edition, with current EditionState", content: { application/json: { schema: { $ref: "#/components/schemas/EditionError" } } } }
-        "409": { description: "revision_conflict or curated_edition_active with current EditionState, or request_id_reused", content: { application/json: { schema: { $ref: "#/components/schemas/EditionError" } } } }
+        "409": { description: "revision_conflict with current EditionState", content: { application/json: { schema: { $ref: "#/components/schemas/EditionError" } } } }
   /native-preferences:
     get:
       tags: [NativePreferences]
       summary: Shared app presentation and edition preferences
-      description: Defaults have revision 0 and updatedAt null until first written. Reading preferences never opts a web-only user into automatic editions. These settings have no effect on web folder ordering or web article filters.
+      description: Defaults have revision 0 and updatedAt null until first written. Reading preferences never publishes an edition. These settings have no effect on web folder ordering or web article filters.
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/NativePreferences" } } } }
     patch:
@@ -896,7 +892,7 @@ components:
       properties:
         id: { type: string, description: Opaque issue identity; newly published issues use UUIDs }
         revision: { type: integer }
-        source: { type: string, enum: [automatic, curated] }
+        source: { type: string, enum: [curated] }
         period: { type: string, enum: [morning, midday, evening, late] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -913,7 +909,7 @@ components:
               maxItems: 5
               items: { $ref: "#/components/schemas/EditionOverviewBlock" }
         layout:
-          description: Optional presentation plan; present when edition.layout is advertised. Null for automatic and unstructured issues. Clients map the roles onto their own columns, sizes and type and set stories the plan does not cover, or blocks they do not know, as plain stories in the order of itemIds.
+          description: Optional presentation plan; present when edition.layout is advertised. Null for unstructured issues. Clients map the roles onto their own columns, sizes and type and set stories the plan does not cover, or blocks they do not know, as plain stories in the order of itemIds.
           oneOf:
             - { type: "null" }
             - { $ref: "#/components/schemas/EditionLayout" }
