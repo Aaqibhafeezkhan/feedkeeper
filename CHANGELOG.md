@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+- The reader HTML also drops a standalone date and a short section link (up to three words) that stand before the first paragraph, as publishers repeat them from the page head.
+
 ## [0.26.2] - 2026-10-14
 
 ### Changed

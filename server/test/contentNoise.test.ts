@@ -25,7 +25,7 @@ test("the reader loses breadcrumbs, dateline and jump links but keeps what a pub
   for (const kept of ["Uns auf Google folgen", "Anzeige", "Affiliate-Link", "© dpa", "Newsletter informiert", "ministry confirmed"]) {
     assert.ok(cleaned.includes(kept), `reader should keep: ${kept}`);
   }
-  assert.deepEqual(stats, { breadcrumb: 1, dateline: 1, "jump-link": 1 });
+  assert.deepEqual(stats, { breadcrumb: 1, dateline: 1, "section-chip": 1 }, "the jump link is a short link before the text");
 });
 
 test("a headline repeated at the start of the body and player leftovers are removed from the reader", () => {
@@ -183,4 +183,13 @@ test("tracking attributes and unused ids are dropped while links, rel and lazy s
   assert.match(cleaned, /rel="sponsored noopener"/);
   assert.match(cleaned, /target="_blank"/);
   assert.match(cleaned, /data-src="https:\/\/img.test\/real.jpg"/);
+});
+
+test("a section chip and a standalone date before the first paragraph are dropped, a short link later is not", () => {
+  const lead = "<p>Der Widerstand gegen Künstliche Intelligenz und die dafür gebauten Rechenzentren nimmt stetig zu, wie mehrere Berichte zeigen.</p>";
+  const head = '<p><a href="/netzpolitik">Netzpolitik</a></p><p>14.10.2026</p>';
+  const cleaned = cleanReaderHtml(head + lead + '<p><a href="/mehr">Mehr dazu</a></p>', null);
+  assert.doesNotMatch(cleaned, /Netzpolitik|14\.10\.2026/);
+  assert.match(cleaned, /Widerstand gegen/);
+  assert.match(cleaned, /Mehr dazu/);
 });

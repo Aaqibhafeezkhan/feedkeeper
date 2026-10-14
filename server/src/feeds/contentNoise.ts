@@ -86,11 +86,20 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
   const headline = normalized(title ?? "");
   const seen = new Set<string>();
   let leading = 0;
+  let reachedText = false;
   for (const block of leafBlocks(root)) {
     const text = flat(block.textContent);
     if (!text) continue;
     const position = leading++;
     const heading = /^H[1-3]$/.test(block.tagName);
+    // Before the first real paragraph: a standalone date and a section chip repeat what the page head says.
+    if (!reachedText && text.length >= 80) reachedText = true;
+    if (!reachedText && position < 12) {
+      const anchorsInBlock = block.querySelectorAll("a");
+      const chip = anchorsInBlock.length === 1 && flat(anchorsInBlock[0].textContent) === text && text.length <= 30 && text.split(" ").length <= 3;
+      if (chip) { drop(block, "section-chip"); continue; }
+      if (/^(\d{1,2}\.\s?\d{1,2}\.\s?\d{2,4}|[A-Z][a-z]{2,8}\.? \d{1,2}, \d{4})([,\s•·|-]+\d{1,2}[:.]\d{2}( Uhr)?)?$/.test(text)) { drop(block, "dateline"); continue; }
+    }
 
     if (headline && normalized(text) === headline && (position < 4 || (heading && position < 14))) { drop(block, "title-repeat"); continue; }
     if (position < 14 && /^(Audiobeitrag|Videobeitrag)\s*>/.test(text) && headline && normalized(text).endsWith(headline)) { drop(block, "title-repeat"); continue; }
