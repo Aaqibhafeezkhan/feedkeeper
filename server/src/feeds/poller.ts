@@ -100,6 +100,12 @@ function extractImageUrl(item: CustomItem): string | null {
   return null;
 }
 
+/** The article address: its link, or its guid when the feed gives only that and the guid is a web address. */
+export function itemLink(item: { link?: string; guid?: string }): string | undefined {
+  if (item.link) return item.link;
+  return item.guid && /^https?:\/\//i.test(item.guid) ? item.guid : undefined;
+}
+
 /** One attempt; the queue owns retries, admission, single-flight and the total deadline. */
 async function pollAttempt(feed: Feed, signal: AbortSignal): Promise<PollResult> {
   const fetched = await fetchFeed(feed.url, { etag: feed.etag ?? undefined, lastModified: feed.last_modified ?? undefined, signal });
@@ -111,7 +117,7 @@ async function pollAttempt(feed: Feed, signal: AbortSignal): Promise<PollResult>
   if (!feedHasActiveSubscriber(feed.id)) return { newItems: 0, error: "feed_poll_not_allowed" };
   const items = parsed?.items.map(item => ({
     guid: item.guid ?? item.link ?? item.title ?? crypto.randomUUID(),
-    title: plainTitle(item.title), link: item.link,
+    title: plainTitle(item.title), link: itemLink(item),
     contentSnippet: decodeEntities(item.contentSnippet ?? item.content) ?? undefined,
     contentHtml: item.contentEncoded ?? item["content:encoded"] ?? item.content ?? null,
     publishedAt: normalizePublishedAt(item.isoDate ?? item.pubDate) ?? undefined, imageUrl: extractImageUrl(item),

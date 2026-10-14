@@ -318,12 +318,15 @@ export function upsertItems(
         // Some publishers replace complete feed bodies with short teasers on a later poll.
         const retained = previous?.content_html && next && next.length < previous.content_html.length * 0.9 &&
           articleText(next).length < articleText(previous.content_html).length * 0.9 ? previous.content_html : next ?? null;
-        update.run(row.title ?? null, row.link ?? null, row.contentSnippet ?? null, retained, row.publishedAt ?? null, row.imageUrl ?? null, feedId, row.guid);
+        // The summary belongs to the body it was sent with: keeping the longer body keeps its summary too, or
+        // a feed that alternates between two variants would change the content on every poll.
+        const keptPrevious = retained !== null && next !== retained;
+        update.run(row.title ?? null, row.link ?? null, keptPrevious ? null : row.contentSnippet ?? null, retained, row.publishedAt ?? null, row.imageUrl ?? null, feedId, row.guid);
         // Polling rewrites every item; only a change of what the lead is made from needs it derived again.
         if (previous) {
           const changed = (retained !== null && retained !== previous.content_html) ||
             (row.title !== undefined && row.title !== previous.title) ||
-            (row.contentSnippet !== undefined && row.contentSnippet !== previous.content_snippet);
+            (!keptPrevious && row.contentSnippet !== undefined && row.contentSnippet !== previous.content_snippet);
           if (previous.lead_version !== LEAD_VERSION || (changed && !previous.full_content_html)) refreshLead(previous.id);
         }
       }

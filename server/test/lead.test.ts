@@ -62,3 +62,19 @@ test("a long lead ends at a sentence, a short article keeps all of its text and 
   assert.equal(leadText({ html: "", snippet: "The feed only delivers this summary.\nThe post X appeared first on Y.", title: "X" }), "The feed only delivers this summary.");
   assert.equal(leadText({ html: null, snippet: null }), "");
 });
+
+test("a feed that alternates between a full and a shortened variant does not change the content on every poll", async () => {
+  const { db, runMigrations } = await import("../src/db/index.js");
+  const repo = await import("../src/feeds/repository.js");
+  runMigrations();
+  const feed = Number(db.prepare("INSERT INTO feeds(url) VALUES ('https://variant.example.test/feed')").run().lastInsertRowid);
+  const full = { guid: "v", title: "Variant", contentSnippet: "von Author I 12.10.2026 Full summary of the story.", contentHtml: `<p>von Author</p><p>${SENTENCE.repeat(4)}</p>` };
+  const short = { guid: "v", title: "Variant", contentSnippet: "Full summary of the story.", contentHtml: `<p>${SENTENCE.repeat(2)}</p>` };
+  repo.upsertItems(feed, [full]);
+  const id = Number((db.prepare("SELECT id FROM items WHERE guid = 'v'").get() as { id: number }).id);
+  const revision = repo.findItemById(id)!.content_revision;
+  for (const variant of [short, full, short, full, short]) repo.upsertItems(feed, [variant]);
+  const item = repo.findItemById(id)!;
+  assert.equal(item.content_revision, revision, "the shortened variants must not bump the revision");
+  assert.equal(item.content_snippet, full.contentSnippet);
+});

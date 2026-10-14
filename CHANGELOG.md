@@ -11,6 +11,10 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 - Article text is cleaned of page chrome that publisher pages put inside the body. The reader HTML (`contentHtml`, `fullTextHtml`) loses breadcrumbs, in-page jump links, a standalone date line, a headline repeated at the start, media labels, language switchers and consent placeholders of embedded posts; credits, disclosures, sponsored and affiliate content stay. Snippets, the text format of MCP `get_item` and the text used for edition curation also lose credit lines, tag lists, calls to action, advertising notices and recommendation tails, and snippets lose the footers that feed plugins append. Nothing is stored differently, so the rules apply to existing articles too. See `docs/full-text.md`.
 - The reader HTML no longer carries typography: fonts, sizes, colours, alignment, classes and presentational tags are removed, so clients set the type themselves. Structure (headings, paragraphs, lists, quotes, tables, links, images) and emphasis (bold, italic, including emphasis that was only an inline style) are kept.
 
+### Fixed
+- Feeds that give an item only a `guid` that is a web address (no `link` element) now use it as the article address, so the full text can be fetched for such items. Existing items pick it up on the next poll.
+- A feed that alternates between a full and a shortened variant of the same item no longer changes the stored content, and so its content revision, on every poll. The summary is kept together with the longer body it belongs to.
+
 ### Upgrade notes
 - Migration 0035 adds two nullable columns to the items table. Leads of stored articles are derived in the background after the first start, in small batches, and are served derived on the spot until then.
 
