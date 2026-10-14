@@ -4,6 +4,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-10-14
+
 ### Added
 - Items carry a `lead`: the beginning of the article as one line of plain text, up to about 600 characters, without breadcrumbs, credits, calls to action and similar page chrome. It is advertised as the `item.lead` feature, derived when content is stored and refreshed when it changes, and comes from the downloaded text when there is one and from the cleaned feed summary otherwise. Clients can use it for teasers instead of deriving text from the HTML.
 
