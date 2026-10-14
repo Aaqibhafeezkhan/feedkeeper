@@ -1,5 +1,6 @@
 import { contentMetadata, readerHtml } from "../../feeds/articleContent.js";
 import { cleanSnippet } from "../../feeds/contentNoise.js";
+import { leadOf } from "../../feeds/lead.js";
 import { db } from "../../db/index.js";
 import type { listItemsForUser, SubscribedFeed } from "../../feeds/repository.js";
 import { serializeSubscription } from "../../sync/changeLog.js";
@@ -37,6 +38,7 @@ export function serializeItem(row: ItemRow, progress: Map<number, number>, withC
     publishedAt: row.published_at,
     addedAt: row.created_at,
     snippet: cleanSnippet(row.content_snippet, row.title),
+    lead: leadOf(row),
     imageUrl: row.image_url,
     hasFullText: Boolean(row.full_content_html),
     content: contentMetadata(row),

@@ -4,8 +4,15 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+- Items carry a `lead`: the beginning of the article as one line of plain text, up to about 600 characters, without breadcrumbs, credits, calls to action and similar page chrome. It is advertised as the `item.lead` feature, derived when content is stored and refreshed when it changes, and comes from the downloaded text when there is one and from the cleaned feed summary otherwise. Clients can use it for teasers instead of deriving text from the HTML.
+
 ### Changed
 - Article text is cleaned of page chrome that publisher pages put inside the body. The reader HTML (`contentHtml`, `fullTextHtml`) loses breadcrumbs, in-page jump links, a standalone date line, a headline repeated at the start, media labels, language switchers and consent placeholders of embedded posts; credits, disclosures, sponsored and affiliate content stay. Snippets, the text format of MCP `get_item` and the text used for edition curation also lose credit lines, tag lists, calls to action, advertising notices and recommendation tails, and snippets lose the footers that feed plugins append. Nothing is stored differently, so the rules apply to existing articles too. See `docs/full-text.md`.
+- The reader HTML no longer carries typography: fonts, sizes, colours, alignment, classes and presentational tags are removed, so clients set the type themselves. Structure (headings, paragraphs, lists, quotes, tables, links, images) and emphasis (bold, italic, including emphasis that was only an inline style) are kept.
+
+### Upgrade notes
+- Migration 0035 adds two nullable columns to the items table. Leads of stored articles are derived in the background after the first start, in small batches, and are served derived on the spot until then.
 
 ## [0.26.0] - 2026-10-14
 

@@ -38,4 +38,8 @@ Publisher pages put navigation and promotion inside the article body: breadcrumb
 
 **Derived text** (`snippet`, the text format of MCP `get_item`, and the text handed to edition curation) is never shown as a page, so noise there only costs relevance. It additionally drops credit and agency lines, captions, tag lists, advertising and affiliate notices, calls to action (newsletter, social, "preferred source"), comment prompts and recommendation tails. A heading such as "Related stories" in the last part of an article removes everything after it. Snippets also lose the footers feed plugins append ("The post … appeared first on …").
 
+The reader HTML also carries no typography: fonts, sizes, colours, alignment, classes and presentational tags are removed, because the client sets the type. Structure (headings, paragraphs, lists, quotes, tables, links, images) and emphasis (bold, italic) are kept; emphasis that was only an inline style becomes `strong` or `em`.
+
+**Lead.** Every item carries a `lead` (advertised as `item.lead`): the first 600 characters or so of the derived text, cut at a sentence. It is stored when content is written and derived again when the rules change, so clients can show a teaser without working it out from the HTML.
+
 The rules are structural or generic idioms in `server/src/feeds/contentNoise.ts`. A phrase is added only when more than one publisher uses it, and every rule has a fixture. Cleaning never leaves an article empty: if almost nothing would remain, the text is returned as it was.

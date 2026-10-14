@@ -5,6 +5,7 @@ import { articleWorkPool, ArticleWorkBusyError, ArticleAccessDeniedError, Articl
 import { requestFullText, authorizedFullTextRequester } from "./fullTextQueue.js";
 import { SsrfBlockedError } from "./ssrfGuard.js";
 import { improvesContent } from "./articleContent.js";
+import { refreshLead } from "./lead.js";
 import { canAccessItem, findItemById, findSubscriptionFullTextMode, updateItemFullContent } from "./repository.js";
 
 // Kept for integrations importing the old constant; retries now belong to individual articles.
@@ -31,6 +32,7 @@ export function cachedFullText(userId: number, itemId: number, force = false): F
   if (item.full_content_html && isCachedConsentSnippet(item.full_content_html)) {
     // Repair cached walls before any caller can mistake them for reader content again.
     db.prepare("UPDATE items SET full_content_html = NULL, extraction_status = 'pending', extraction_retry_at = NULL WHERE id = ?").run(itemId);
+    refreshLead(itemId);
     item.full_content_html = null;
   }
   if (!force && item.full_content_html && !isCachedConsentSnippet(item.full_content_html)) {

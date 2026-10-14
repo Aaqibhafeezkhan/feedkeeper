@@ -154,3 +154,22 @@ test("a games site: video card with its autoplay label and a consent block of an
   assert.doesNotMatch(text, /14:39|Autoplay|Reddit-Inhalt/);
   assert.match(text, /Ein Bild vom Zeppelin/);
 });
+
+test("the reader keeps structure and emphasis but no fonts, sizes, colours or classes", () => {
+  const html = '<div class="article" style="font-family: Georgia"><h2 style="font-size: 30px">Heading</h2>' +
+    '<p style="text-align: justify; color: #333" class="lead"><font face="Arial" size="4"><b>Bold</b> and <i>italic</i> text</font> with ' +
+    '<span style="font-weight: bold; font-size: 14px">styled bold</span> and <span style="font-style: italic">styled italic</span>.</p>' +
+    '<p align="center"><big>Big</big> <small>small</small> <u>underlined</u></p>' +
+    '<table width="600" border="1"><tr><td width="50%" bgcolor="#eee">Cell</td></tr></table>' +
+    '<img src="https://img.test/a.jpg" width="640" height="360" alt="A" style="float:left">' +
+    '<style>p { font-size: 40px }</style><p id="note-1"><span id="fn">Footnote</span> <a href="#fn">1</a></p></div>';
+  const cleaned = cleanReaderHtml(html, null);
+  assert.doesNotMatch(cleaned, /style=|class=|face=|size=|color=|align=|bgcolor=|border=|<font|<span id="x"|<big|<small|<u>|<style/i);
+  assert.match(cleaned, /<h2>Heading<\/h2>/);
+  assert.match(cleaned, /<b>Bold<\/b> and <i>italic<\/i> text/);
+  assert.match(cleaned, /<strong>styled bold<\/strong>/);
+  assert.match(cleaned, /<em>styled italic<\/em>/);
+  assert.match(cleaned, /<img src="https:\/\/img.test\/a.jpg" width="640" height="360" alt="A">/);
+  assert.match(cleaned, /<table><tbody><tr><td>Cell<\/td>/);
+  assert.match(cleaned, /<span id="fn">Footnote<\/span>/);
+});

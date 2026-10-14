@@ -19,6 +19,7 @@ import { startCleanupScheduler } from "./feeds/cleanup.js";
 import { repairEncodedText } from "./feeds/repository.js";
 import { pruneArchive, scheduleMissingArchives } from "./feeds/archive.js";
 import { startEditionScheduler } from "./native/editions.js";
+import { startLeadBackfill } from "./feeds/lead.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = join(__dirname, "../../web/dist");
@@ -26,6 +27,7 @@ const WEB_DIST = join(__dirname, "../../web/dist");
 runMigrations();
 const repairedItems = repairEncodedText();
 if (repairedItems > 0) console.log(`[db] decoded HTML entities in ${repairedItems} stored items`);
+startLeadBackfill();
 pruneArchive();
 const pendingArchives = scheduleMissingArchives();
 if (pendingArchives > 0) console.log(`[archive] archiving ${pendingArchives} saved articles in the background`);

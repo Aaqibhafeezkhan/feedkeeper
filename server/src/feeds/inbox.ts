@@ -1,3 +1,4 @@
+import { refreshLead } from "./lead.js";
 import { randomUUID } from "node:crypto";
 import { db } from "../db/index.js";
 import { hasUserCapability } from "../auth/capabilities.js";
@@ -139,6 +140,7 @@ export async function saveToInbox(
       contentHtml && !extractedPartial ? "ready" : extractionStatus, extractedPartial ? new Date(Date.now() + 86400_000).toISOString() : null) as { id: number };
 
   const itemId = row.id;
+  refreshLead(itemId);
 
   bookmarkItem(userId, itemId);
 

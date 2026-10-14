@@ -1,5 +1,7 @@
 import { db } from "../db/index.js";
 import { articleText } from "./articleContent.js";
+import { LEAD_VERSION } from "./contentNoise.js";
+import { refreshLead } from "./lead.js";
 import { decodeEntities } from "./text.js";
 
 export interface Feed {
@@ -34,6 +36,8 @@ export interface Item {
   content_html: string | null;
   full_content_html: string | null;
   content_revision: number;
+  content_lead: string | null;
+  lead_version: number | null;
   extraction_status: string;
   extraction_attempted_at: string | null;
   extraction_retry_at: string | null;
@@ -306,13 +310,22 @@ export function upsertItems(
       const result = insert.run(...values);
       if (result.changes > 0) {
         inserted++;
+        refreshLead(Number(result.lastInsertRowid));
       } else {
-        const previous = db.prepare<[number, string], { content_html: string | null }>("SELECT content_html FROM items WHERE feed_id = ? AND guid = ?").get(feedId, row.guid);
+        const previous = db.prepare<[number, string], { id: number; title: string | null; content_snippet: string | null; content_html: string | null; full_content_html: string | null; lead_version: number | null }>(
+          "SELECT id, title, content_snippet, content_html, full_content_html, lead_version FROM items WHERE feed_id = ? AND guid = ?").get(feedId, row.guid);
         const next = row.contentHtml;
         // Some publishers replace complete feed bodies with short teasers on a later poll.
         const retained = previous?.content_html && next && next.length < previous.content_html.length * 0.9 &&
           articleText(next).length < articleText(previous.content_html).length * 0.9 ? previous.content_html : next ?? null;
         update.run(row.title ?? null, row.link ?? null, row.contentSnippet ?? null, retained, row.publishedAt ?? null, row.imageUrl ?? null, feedId, row.guid);
+        // Polling rewrites every item; only a change of what the lead is made from needs it derived again.
+        if (previous) {
+          const changed = (retained !== null && retained !== previous.content_html) ||
+            (row.title !== undefined && row.title !== previous.title) ||
+            (row.contentSnippet !== undefined && row.contentSnippet !== previous.content_snippet);
+          if (previous.lead_version !== LEAD_VERSION || (changed && !previous.full_content_html)) refreshLead(previous.id);
+        }
       }
     }
     return inserted;
@@ -643,6 +656,7 @@ export function findItemById(id: number): Item | undefined {
 
 export function updateItemFullContent(id: number, fullContentHtml: string): void {
   db.prepare("UPDATE items SET full_content_html = ? WHERE id = ?").run(fullContentHtml, id);
+  refreshLead(id);
 }
 
 /** Apply a per-item change to many items atomically; returns how many rows changed. */

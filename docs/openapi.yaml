@@ -853,6 +853,7 @@ components:
         publishedAt: { type: [string, "null"] }
         addedAt: { type: string }
         snippet: { type: [string, "null"] }
+        lead: { type: [string, "null"], description: "The beginning of the article as one line of plain text, at most about 600 characters, without breadcrumbs, credits, calls to action and similar page chrome. Present when item.lead is advertised. Prefer it over deriving a teaser from the HTML." }
         imageUrl: { type: [string, "null"] }
         hasFullText: { type: boolean }
         content: { $ref: "#/components/schemas/ArticleContent" }

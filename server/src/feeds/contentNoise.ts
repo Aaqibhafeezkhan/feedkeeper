@@ -127,6 +127,52 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
   return changed;
 }
 
+const PRESENTATIONAL_TAGS = new Set(["FONT", "BIG", "SMALL", "CENTER", "TT", "U", "STRIKE", "S", "BASEFONT", "BLINK", "NOBR", "SPAN", "MARK"]);
+const PRESENTATIONAL_ATTRIBUTES = ["style", "class", "color", "face", "size", "bgcolor", "align", "valign", "border", "cellpadding",
+  "cellspacing", "background", "hspace", "vspace", "nowrap"];
+const SIZED_TAGS = new Set(["IMG", "VIDEO", "CANVAS", "IFRAME", "EMBED", "OBJECT"]);
+const EMPHASIS_EXEMPT = "h1, h2, h3, h4, h5, h6, th, strong, b";
+
+function wrapChildren(element: Element, tag: "strong" | "em"): void {
+  const wrapper = element.ownerDocument.createElement(tag);
+  while (element.firstChild) wrapper.append(element.firstChild);
+  element.append(wrapper);
+}
+
+/**
+ * Typography belongs to the client: fonts, sizes, colours, alignment and classes are removed so that only
+ * structure (headings, paragraphs, lists, quotes, tables, links, images) and emphasis (bold, italic) are left.
+ * Emphasis that was only a style (`font-weight: bold` on a span) is kept as strong or em.
+ */
+function removeTypography(root: DocumentFragment, stats: NoiseStats): boolean {
+  let changed = false;
+  root.querySelectorAll("style, link[rel~='stylesheet']").forEach(node => { node.remove(); changed = true; });
+  const targets = new Set([...root.querySelectorAll("a[href^='#']")].map(anchor => (anchor.getAttribute("href") ?? "").slice(1)));
+  for (const element of [...root.querySelectorAll("*")]) {
+    const style = element.getAttribute("style") ?? "";
+    const bold = /font-weight\s*:\s*(bold|bolder|[6-9]00)\b/i.test(style);
+    const italic = /font-style\s*:\s*(italic|oblique)\b/i.test(style);
+    const plain = !element.matches(EMPHASIS_EXEMPT) && !element.closest(EMPHASIS_EXEMPT) && flat(element.textContent) !== "";
+    for (const name of PRESENTATIONAL_ATTRIBUTES) {
+      if (element.hasAttribute(name)) { element.removeAttribute(name); changed = true; }
+    }
+    if (!SIZED_TAGS.has(element.tagName)) {
+      for (const name of ["width", "height"]) {
+        if (element.hasAttribute(name)) { element.removeAttribute(name); changed = true; }
+      }
+    }
+    if (plain && bold) wrapChildren(element, "strong");
+    if (plain && italic && !element.closest("em, i")) wrapChildren(element, "em");
+    const anchorTarget = element.id && targets.has(element.id);
+    if (PRESENTATIONAL_TAGS.has(element.tagName) && !anchorTarget) {
+      element.replaceWith(...element.childNodes);
+      changed = true;
+    }
+  }
+  if (changed) stats["typography"] = (stats["typography"] ?? 0) + 1;
+  return changed;
+}
+
 function serialize(root: DocumentFragment): string {
   const holder = root.ownerDocument.createElement("div");
   holder.append(root);
@@ -137,7 +183,9 @@ function serialize(root: DocumentFragment): string {
 export function cleanReaderHtml(html: string, title?: string | null, stats: NoiseStats = {}): string {
   if (!html) return html;
   const root = JSDOM.fragment(html);
-  return removeReaderNoise(root, title, stats) ? serialize(root) : html;
+  const noise = removeReaderNoise(root, title, stats);
+  const typography = removeTypography(root, stats);
+  return noise || typography ? serialize(root) : html;
 }
 
 const CREDIT_PATTERNS: RegExp[] = [
@@ -312,4 +360,28 @@ export function cleanSnippet(snippet: string | null | undefined, title?: string 
     line && !SNIPPET_LINE_PATTERNS.some(pattern => pattern.test(line)) && !isSocialList(line) &&
     !(index === 0 && headline && normalized(line) === headline));
   return lines.join("\n").trim();
+}
+
+/** Raised whenever the rules above change what they remove, so stored leads are derived again. */
+export const LEAD_VERSION = 1;
+const LEAD_LENGTH = 600;
+
+function shorten(text: string, max: number): string {
+  if (text.length <= max) return text;
+  let slice = text.slice(0, max);
+  if (/[\uD800-\uDBFF]$/.test(slice)) slice = slice.slice(0, -1);
+  const sentence = Math.max(slice.lastIndexOf(". "), slice.lastIndexOf("! "), slice.lastIndexOf("? "));
+  if (sentence >= max * 0.5) return slice.slice(0, sentence + 1);
+  const space = slice.lastIndexOf(" ");
+  return (space >= max * 0.5 ? slice.slice(0, space) : slice).replace(/[\s,;:–-]+$/, "") + "…";
+}
+
+/**
+ * The beginning of an article as one plain line, for teasers: the cleaned body, or the cleaned feed summary when
+ * that says more (a failed download leaves only the summary).
+ */
+export function leadText(parts: { html?: string | null; snippet?: string | null; title?: string | null }, max = LEAD_LENGTH): string {
+  const body = derivedText(parts.html, parts.title);
+  const summary = flat(cleanSnippet(parts.snippet, parts.title));
+  return shorten(body.length >= summary.length ? body : summary, max);
 }
