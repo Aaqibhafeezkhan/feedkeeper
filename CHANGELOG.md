@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+- Article text is cleaned of page chrome that publisher pages put inside the body. The reader HTML (`contentHtml`, `fullTextHtml`) loses breadcrumbs, in-page jump links, a standalone date line, a headline repeated at the start, media labels, language switchers and consent placeholders of embedded posts; credits, disclosures, sponsored and affiliate content stay. Snippets, the text format of MCP `get_item` and the text used for edition curation also lose credit lines, tag lists, calls to action, advertising notices and recommendation tails, and snippets lose the footers that feed plugins append. Nothing is stored differently, so the rules apply to existing articles too. See `docs/full-text.md`.
+
 ## [0.26.0] - 2026-10-14
 
 ### Added

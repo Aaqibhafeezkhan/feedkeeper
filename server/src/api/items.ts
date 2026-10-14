@@ -13,6 +13,8 @@ import {
   findItemById,
 } from "../feeds/repository.js";
 import { loadFullText, type FullTextError } from "../feeds/fullText.js";
+import { readerHtml } from "../feeds/articleContent.js";
+import { cleanSnippet } from "../feeds/contentNoise.js";
 import { fetchItemImage, pruneArchive, scheduleArchive, withArchivedImages, withProxiedImages } from "../feeds/archive.js";
 import { ImageCacheBusyError } from "../feeds/imageCache.js";
 
@@ -60,6 +62,9 @@ itemsRouter.get("/", (req, res) => {
   res.json(
     items.map((item) => ({
       ...item,
+      content_snippet: cleanSnippet(item.content_snippet, item.title),
+      content_html: readerHtml(item.content_html, item.title),
+      full_content_html: readerHtml(item.full_content_html, item.title),
       read: Boolean(item.read),
       bookmarked: Boolean(item.bookmarked),
     })),
@@ -142,7 +147,7 @@ itemsRouter.post("/:itemId/extract-content", async (req, res) => {
   const [served] = withArchivedImages([{ id: result.id, link: findItemById(result.id)?.link ?? null, full_content_html: result.fullContentHtml }], requestOrigin(req));
   res.json({
     id: result.id,
-    full_content_html: served.full_content_html,
+    full_content_html: readerHtml(served.full_content_html, result.title ?? findItemById(result.id)?.title),
     ...(result.cached ? {} : { title: result.title, byline: result.byline }),
     cached: result.cached,
   });

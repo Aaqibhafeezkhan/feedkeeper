@@ -29,3 +29,13 @@ Run **one application process per database**. The job table survives shutdown, b
 The aggregate `fulltext_queue` log includes queued/running/waiting work, waiting consumers, completions, failures, retries, throttling, rejections, total extraction duration and the oldest job's wait. It contains no source addresses, credentials or article contents. Compare these counters with feed lag, process memory and API latency before raising concurrency.
 
 Before upgrading, back up the database and stop the old process. Migration 0033 adds job age, retry state and host cooldowns. Start with the defaults and observe a full polling cycle. To roll back, stop the application and run the previous version with its previous settings. The additive columns and table may remain; keep the backup for a full restore. Older releases ignore saved host cooldowns, so wait out active source pauses before reverting. Do not run old and new processes together.
+
+## Page chrome in articles
+
+Publisher pages put navigation and promotion inside the article body: breadcrumbs, a repeated headline and date line, player labels, consent placeholders for embedded posts, follow prompts, recommendation lists. FeedKeeper removes it in two layers with different rules, and never changes what is stored.
+
+**What a reader shows** (`contentHtml` and `fullTextHtml`) loses only what cannot work in a reader or repeats what the reader already shows: breadcrumbs, in-page jump links, a standalone date line, the headline repeated at the start, separator and media labels, language switchers, consent placeholders of embedded content and verbatim repeats near the start. Credits, disclosures, sponsored and affiliate content and a publisher's own calls to action stay. A source's revenue model is not ours to remove.
+
+**Derived text** (`snippet`, the text format of MCP `get_item`, and the text handed to edition curation) is never shown as a page, so noise there only costs relevance. It additionally drops credit and agency lines, captions, tag lists, advertising and affiliate notices, calls to action (newsletter, social, "preferred source"), comment prompts and recommendation tails. A heading such as "Related stories" in the last part of an article removes everything after it. Snippets also lose the footers feed plugins append ("The post … appeared first on …").
+
+The rules are structural or generic idioms in `server/src/feeds/contentNoise.ts`. A phrase is added only when more than one publisher uses it, and every rule has a fixture. Cleaning never leaves an article empty: if almost nothing would remain, the text is returned as it was.

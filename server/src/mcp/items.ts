@@ -1,4 +1,4 @@
-import { contentMetadata, sourceText } from "../feeds/articleContent.js";
+import { contentMetadata, readerHtml, sourceText } from "../feeds/articleContent.js";
 import { z } from "zod";
 import { findItemForUser, listItemsForUser } from "../feeds/repository.js";
 
@@ -67,7 +67,7 @@ export function getItemForMcp(userId: number, itemId: number, maxChars = MAX_CON
   const item = findItemForUser(userId, itemId);
   if (!item) return null;
   if (revision !== undefined && revision !== item.content_revision) throw new Error("content_revision_conflict");
-  const content = item.full_content_html ?? item.content_html;
+  const content = readerHtml(item.full_content_html ?? item.content_html, item.title);
   const body = format === "text" ? sourceText(item) : content ?? "";
   let end = Math.min(offset + Math.min(maxChars, MAX_CONTENT_LENGTH), body.length);
   if (end < body.length && /[\uD800-\uDBFF]/.test(body[end - 1])) end--;
