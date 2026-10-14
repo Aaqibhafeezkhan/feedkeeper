@@ -4,6 +4,12 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+- The reader HTML no longer carries tracking and scripting attributes (`data-*` hooks, `aria-*`, `role`, `on*` handlers, microdata) or ids that nothing links to. Links keep `href`, `rel` (including `sponsored`) and `target`, images keep their lazy-load sources, and ids that an in-article link points to stay. Pages that put a long JSON blob on every link are a fraction of their size.
+
+### Fixed
+- The internal `content_lead` and `lead_version` columns are no longer part of the raw item output of the MCP tools and the web app's item list; the lead is served as `lead` by the native API.
+
 ## [0.26.1] - 2026-10-14
 
 ### Added

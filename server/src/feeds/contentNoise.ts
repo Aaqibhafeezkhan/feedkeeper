@@ -131,6 +131,14 @@ const PRESENTATIONAL_TAGS = new Set(["FONT", "BIG", "SMALL", "CENTER", "TT", "U"
 const PRESENTATIONAL_ATTRIBUTES = ["style", "class", "color", "face", "size", "bgcolor", "align", "valign", "border", "cellpadding",
   "cellspacing", "background", "hspace", "vspace", "nowrap"];
 const SIZED_TAGS = new Set(["IMG", "VIDEO", "CANVAS", "IFRAME", "EMBED", "OBJECT"]);
+// Tracking and scripting hooks no client uses. Lazy-load sources stay: they may be an image's only address.
+const LAZY_SOURCES = new Set(["data-src", "data-srcset", "data-lazy-src", "data-original"]);
+const INERT_ATTRIBUTES = new Set(["role", "tabindex", "itemprop", "itemscope", "itemtype", "itemid", "draggable", "contenteditable"]);
+
+function isInertAttribute(name: string): boolean {
+  if (LAZY_SOURCES.has(name)) return false;
+  return name.startsWith("data-") || name.startsWith("aria-") || name.startsWith("on") || INERT_ATTRIBUTES.has(name);
+}
 const EMPHASIS_EXEMPT = "h1, h2, h3, h4, h5, h6, th, strong, b";
 
 function wrapChildren(element: Element, tag: "strong" | "em"): void {
@@ -156,6 +164,9 @@ function removeTypography(root: DocumentFragment, stats: NoiseStats): boolean {
     for (const name of PRESENTATIONAL_ATTRIBUTES) {
       if (element.hasAttribute(name)) { element.removeAttribute(name); changed = true; }
     }
+    for (const name of element.getAttributeNames()) {
+      if (isInertAttribute(name)) { element.removeAttribute(name); changed = true; }
+    }
     if (!SIZED_TAGS.has(element.tagName)) {
       for (const name of ["width", "height"]) {
         if (element.hasAttribute(name)) { element.removeAttribute(name); changed = true; }
@@ -164,6 +175,8 @@ function removeTypography(root: DocumentFragment, stats: NoiseStats): boolean {
     if (plain && bold) wrapChildren(element, "strong");
     if (plain && italic && !element.closest("em, i")) wrapChildren(element, "em");
     const anchorTarget = element.id && targets.has(element.id);
+    if (element.id && !anchorTarget) { element.removeAttribute("id"); changed = true; }
+    if (element.tagName === "A" && element.hasAttribute("name") && !targets.has(element.getAttribute("name") ?? "")) { element.removeAttribute("name"); changed = true; }
     if (PRESENTATIONAL_TAGS.has(element.tagName) && !anchorTarget) {
       element.replaceWith(...element.childNodes);
       changed = true;

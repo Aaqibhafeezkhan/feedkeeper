@@ -53,7 +53,7 @@ export function listItemsPage(
   });
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit);
-  const items = page.map(({ content_html: _contentHtml, full_content_html: _fullContentHtml, ...item }) => item);
+  const items = page.map(({ content_html: _contentHtml, full_content_html: _fullContentHtml, content_lead: _lead, lead_version: _leadVersion, ...item }) => item);
   return {
     items,
     newestCursor: page[0] ? encodeCursor(page[0]) : null,
@@ -73,8 +73,9 @@ export function getItemForMcp(userId: number, itemId: number, maxChars = MAX_CON
   if (end < body.length && /[\uD800-\uDBFF]/.test(body[end - 1])) end--;
   if (end === offset && offset < body.length) end = Math.min(offset + 2, body.length);
 
+  const { content_lead: _lead, lead_version: _leadVersion, ...visible } = item;
   return {
-    ...item,
+    ...visible,
     content_html: format === "html" ? body.slice(offset, end) : undefined,
     content_truncated: end < body.length,
     full_content_html: undefined,

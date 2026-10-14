@@ -50,6 +50,11 @@ test("the lead is derived when content is stored, kept while it is unchanged and
   assert.equal(serializeItem(legacy as never, new Map(), false).lead, leadOf(legacy));
   assert.equal(backfillLeads(), 1);
   assert.equal(backfillLeads(), 0);
+  const { getItemForMcp } = await import("../src/mcp/items.js");
+  const owner = Number(db.prepare("INSERT INTO users(email,password_hash,display_name) VALUES ('lead@example.test','hash','Lead')").run().lastInsertRowid);
+  db.prepare("INSERT INTO subscriptions(user_id,feed_id) VALUES (?,?)").run(owner, feed);
+  const mcp = getItemForMcp(owner, id("a"))!;
+  assert.ok(!("content_lead" in mcp) && !("lead_version" in mcp), "internal lead columns are not part of the MCP item");
   assert.equal(repo.findItemById(id("a"))!.lead_version, LEAD_VERSION);
 });
 

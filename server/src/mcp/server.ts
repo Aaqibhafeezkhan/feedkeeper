@@ -323,7 +323,7 @@ export function createMcpServerForUser(userId: number, scope: TokenScope): McpSe
     async ({ feedId, folderId, search, bookmarkedOnly, since, until, limit, includeContent, snippetChars }) =>
       textResult(listItemsForUser(userId, {
         feedId, folderId, search, bookmarkedOnly, limit, unreadOnly: true, publishedSince: since, publishedUntil: until,
-      }).map(({ content_html, full_content_html, ...item }) => ({
+      }).map(({ content_html, full_content_html, content_lead: _lead, lead_version: _leadVersion, ...item }) => ({
         ...item,
         ...(includeContent === false ? {} : { content_html, full_content_html }),
         content_snippet: snippetChars ? truncate(item.content_snippet, snippetChars) : item.content_snippet,

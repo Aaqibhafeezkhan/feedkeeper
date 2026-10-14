@@ -173,3 +173,14 @@ test("the reader keeps structure and emphasis but no fonts, sizes, colours or cl
   assert.match(cleaned, /<table><tbody><tr><td>Cell<\/td>/);
   assert.match(cleaned, /<span id="fn">Footnote<\/span>/);
 });
+
+test("tracking attributes and unused ids are dropped while links, rel and lazy sources stay", () => {
+  const html = '<p id="intro" data-id-ec="{&quot;a&quot;:1}" aria-label="x" role="note" onclick="track()">See <a href="https://shop.test/p?aff=1" rel="sponsored noopener" target="_blank" data-trk-label="x" aria-hidden="false">the offer</a> and <a href="#fn1">a note</a>.</p>' +
+    '<h2 id="topic">Topic</h2><p id="fn1">Footnote</p><img src="data:image/gif;base64,R0lGOD" data-src="https://img.test/real.jpg" data-nimg="fill" alt="Real">';
+  const cleaned = cleanReaderHtml(html, null);
+  assert.doesNotMatch(cleaned, /data-id-ec|aria-|role=|onclick|data-trk|data-nimg|id="intro"|id="topic"/);
+  assert.match(cleaned, /id="fn1"/);
+  assert.match(cleaned, /rel="sponsored noopener"/);
+  assert.match(cleaned, /target="_blank"/);
+  assert.match(cleaned, /data-src="https:\/\/img.test\/real.jpg"/);
+});

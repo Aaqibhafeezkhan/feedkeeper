@@ -60,7 +60,7 @@ itemsRouter.get("/", (req, res) => {
   // Offline copies also get the images of articles that are not archived, through this server.
   const items = parsed.data.offline ? withProxiedImages(archived, origin) : archived;
   res.json(
-    items.map((item) => ({
+    items.map(({ content_lead: _lead, lead_version: _leadVersion, ...item }) => ({
       ...item,
       content_snippet: cleanSnippet(item.content_snippet, item.title),
       content_html: readerHtml(item.content_html, item.title),
