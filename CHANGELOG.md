@@ -4,6 +4,11 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.26.5] - 2026-10-15
+
+### Added
+- A reverse-proxy guide ([docs/reverse-proxy.md](docs/reverse-proxy.md)) for exposing FeedKeeper over HTTPS with Caddy, nginx or Traefik: hostname and `PUBLIC_URL`, HSTS, `TRUST_PROXY` for single and chained proxies, when `CLIENT_IP_HEADER` is needed (Cloudflare and hosts that overwrite `X-Forwarded-For`), nginx's request-body limit for OPML imports, and optional buffering settings for the stateless MCP endpoint. It is linked from the README and the Raspberry Pi guide. Thanks to @Aaqibhafeezkhan for writing it (#32).
+
 ## [0.26.4] - 2026-10-14
 
 ### Fixed
