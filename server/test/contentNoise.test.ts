@@ -206,3 +206,31 @@ test("a wrapper element's picture address replaces the placeholder image inside 
   assert.match(bare, /<img[^>]*src="https:\/\/cdn\.example\.test\/chart\.png"[^>]*>/);
   assert.equal(cleanReaderHtml(`<p><img src="/photo.jpg"></p>`), `<p><img src="/photo.jpg"></p>`);
 });
+
+test("a link that holds one badge in two colour schemes keeps its label as text instead of two large images", () => {
+  const stats: NoiseStats = {};
+  const badge = '<p><a target="_blank" rel="nofollow" href="https://google.com/preferences/source?q=https://example.test" aria-label="Add Example as a preferred source on Google">' +
+    '<img src="https://example.test/theme/badge-dark.png" alt="Add Example as a preferred source on Google">' +
+    '<img src="https://example.test/theme/badge-light.png" alt="Add Example as a preferred source on Google"></a></p>';
+  const html = BODY + '<ul><li><a href="https://amzn.to/x">Affiliate item</a></li></ul>' + badge + '<p><em>FTC: We use income earning auto affiliate links.</em></p>';
+  const cleaned = cleanReaderHtml(html, "Title", stats);
+  assert.doesNotMatch(cleaned, /badge-(dark|light)\.png/);
+  assert.match(cleaned, /<a [^>]*href="https:\/\/google\.com\/preferences\/source[^"]*"[^>]*>Add Example as a preferred source on Google<\/a>/);
+  for (const kept of ["Affiliate item", "FTC: We use income earning", "ministry confirmed"]) assert.match(cleaned, new RegExp(kept));
+  assert.equal(stats["image-variants"], 1);
+});
+
+test("links with one image, with different images or with text next to the images stay as they are", () => {
+  const same = '<a href="https://example.test/a"><img src="https://example.test/a.png" alt="Logo"></a>';
+  const different = '<a href="https://example.test/b"><img src="https://example.test/1.png" alt="Front"><img src="https://example.test/2.png" alt="Back"></a>';
+  const withText = '<a href="https://example.test/c"><img src="https://example.test/3.png" alt="Pic"><img src="https://example.test/4.png" alt="Pic"> Gallery</a>';
+  const cleaned = cleanReaderHtml(BODY + `<p>${same}</p><p>${different}</p><p>${withText}</p>`, "Title");
+  for (const src of ["a.png", "1.png", "2.png", "3.png", "4.png"]) assert.match(cleaned, new RegExp(src.replace(".", "\\.")));
+});
+
+test("variants without a label collapse to the first image", () => {
+  const html = BODY + '<p><a href="https://example.test/s"><img src="https://example.test/dark.png"><img src="https://example.test/light.png"></a></p>';
+  const cleaned = cleanReaderHtml(html, "Title");
+  assert.match(cleaned, /dark\.png/);
+  assert.doesNotMatch(cleaned, /light\.png/);
+});

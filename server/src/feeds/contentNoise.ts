@@ -206,9 +206,10 @@ export function cleanReaderHtml(html: string, title?: string | null, stats: Nois
   if (!html) return html;
   const root = JSDOM.fragment(html);
   const images = resolveCustomImages(root, stats);
+  const variants = collapseImageVariants(root, stats);
   const noise = removeReaderNoise(root, title, stats);
   const typography = removeTypography(root, stats);
-  return images || noise || typography ? serialize(root) : html;
+  return images || variants || noise || typography ? serialize(root) : html;
 }
 
 /**
@@ -234,6 +235,28 @@ function resolveCustomImages(root: DocumentFragment, stats: NoiseStats): boolean
     changed = true;
   }
   if (changed) stats["custom-image"] = (stats["custom-image"] ?? 0) + 1;
+  return changed;
+}
+
+/**
+ * Publishers put one badge in two colour schemes into a link (`<a><img alt="X"><img alt="X"></a>`) and let their
+ * stylesheet show one of them. A reader has no such stylesheet, so both stand there at full size. Images that carry
+ * the same label inside one link and no other text are variants of one thing: the link keeps its label as text, or,
+ * without a label, its first image. The call to action itself stays.
+ */
+function collapseImageVariants(root: DocumentFragment, stats: NoiseStats): boolean {
+  let changed = false;
+  for (const anchor of [...root.querySelectorAll("a")]) {
+    const images = [...anchor.querySelectorAll("img")];
+    if (images.length < 2 || flat(anchor.textContent) !== "") continue;
+    const labels = new Set(images.map(image => flat(image.getAttribute("alt"))));
+    if (labels.size !== 1) continue;
+    const [label] = labels;
+    if (label) anchor.replaceChildren(anchor.ownerDocument.createTextNode(label));
+    else images.slice(1).forEach(image => image.remove());
+    stats["image-variants"] = (stats["image-variants"] ?? 0) + 1;
+    changed = true;
+  }
   return changed;
 }
 

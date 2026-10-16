@@ -8,6 +8,7 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 - `ipaddr.js` 2.5.0 in the address check for feed hosts. It reports more special-purpose ranges as non-public and parses short forms such as `127.1` as loopback; nothing that was blocked before is allowed now (#20).
 
 ### Fixed
+- Badges in two colour schemes: a link that holds several images with the same label and no other text (a light and a dark variant that the publisher's stylesheet switches between) no longer shows all of them at full size in the reader. The link keeps its label as text, or its first image when it has none. The call to action itself stays.
 - A feed's thumbnail as the hero picture: when the feed names a small size of a picture (for example `…__wide__148` or `…-720x405.jpg`) and the article shows the same picture in a clearly larger size, that size becomes the item's picture, up to 2000 px wide. It applies to new items and as soon as an article's full text is stored.
 
 ## [0.26.5] - 2026-10-15
