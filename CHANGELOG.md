@@ -4,9 +4,14 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-10-16
+
 ### Fixed
 - An author that a feed's next poll adds or changes now moves the item's content revision, so clients that already hold the item (and sync by revision) learn of it. Before, only items that a client fetched after the poll showed their author. Migration `0038_author_revision.sql` adds the trigger; the extraction status is untouched, so no full text is fetched again.
 - The English forms of the byline, comment-rules and ad-label rules: `Posted by`, `Words by` and similar bylines, headings such as "Community guidelines" and "House rules", and labels such as "Ad", "Sponsored content" and "Paid content" are handled like their German counterparts.
+
+### Upgrade notes
+- Migration `0038_author_revision.sql` adds a trigger. After the update, the next poll of each feed moves the revision of the items that gain an author, so synced clients fetch those items once more; no full text is fetched again.
 
 ## [0.27.0] - 2026-10-16
 
