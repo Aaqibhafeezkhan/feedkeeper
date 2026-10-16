@@ -58,4 +58,10 @@ test("the author is stored with the item, filled in on a later poll and served b
   assert.equal(repo.findItemById(id)!.author, "Anna Muster, Ben Beispiel", "a poll without an author keeps the known one");
   const row = { ...repo.findItemById(id)!, feed_title: "Feed", read: 0, bookmarked: 0 } as unknown as Parameters<typeof serializeItem>[0];
   assert.equal(serializeItem(row, new Map(), false).author, "Anna Muster, Ben Beispiel");
+  const revision = repo.findItemById(id)!.content_revision;
+  repo.upsertItems(feed, [{ guid: "a", title: "Story", contentHtml: "<p>Text</p>", author: "Anna Muster, Ben Beispiel" }]);
+  assert.equal(repo.findItemById(id)!.content_revision, revision, "the same author again changes nothing");
+  repo.upsertItems(feed, [{ guid: "a", title: "Story", contentHtml: "<p>Text</p>", author: "Carl Probe" }]);
+  assert.equal(repo.findItemById(id)!.content_revision, revision + 1, "a changed author is a new revision, so clients that hold the item learn of it");
+  assert.equal(repo.findItemById(id)!.extraction_status, "pending", "the extraction status is left alone");
 });
