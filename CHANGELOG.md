@@ -4,10 +4,21 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-16
+
+### Added
+- Authors: items carry the `author` their feed names (`dc:creator`, RSS `author`, Atom `author`), advertised as `item.author`. When there are several, all of them are listed, joined by commas. An address without a name (`staff@site.test`), a generic name (`admin`, `Redaktion`) and the publication's own name are left out; `staff@site.test (Anna Muster)` becomes `Anna Muster`. The API, the legacy item API and MCP return it, and the web reader shows it beside the date. Items get their author on the next poll of their feed; a poll that names none keeps a known one.
+
+### Changed
+- A byline in the article text that only repeats the feed's author (`von Michael Bartl I 15.10.2026`) is left out of the reader's HTML, since clients now show the name beside the date.
+
 ### Fixed
 - Product cards of shop links: a card whose picture is only a CSS background (which no reader draws) and that holds a link and a price (a label such as "Produkthinweis", the product name and its price) is left out of the reader as a whole, so no label stands over an empty space and no price of the day outlasts the article. The article's own links and its affiliate disclosure stay.
 - Video players in the reader: the play-button picture of a player (alt text such as "Video starten" or "Abspielen", or a file named `play_icon.svg`) is a picture no reader can draw without the publisher's script, and showed up as a broken image. It is removed; a player that is only a script-driven button without an address is left out with its label. What has an address stays as one plain link to the video, marked `data-media="video"`: a player's two links to the same video become one, and embeds of YouTube, Vimeo and Dailymotion as well as `<video>` elements with a source turn into a link as well. Embeds of other sites are left as they were.
 - Page chrome at the edges of an article: a byline that ends in the date (`von Michael Bartl I 15.10.2026 - 11:41`) keeps the author and loses the date, which the reader shows in its head. A comment section's house rules at the end of the text (`Regeln für Kommentare`, "only registered users can comment") go with everything below them. An ad label such as "Anzeige" with no ad behind it, because a script fills the slot, is dropped; sponsored content itself and its label stay.
+
+### Upgrade notes
+- Migration `0037_item_author.sql` adds one nullable column to `items`; nothing needs to be done. Existing items show an author once their feed is polled again.
 
 ## [0.26.6] - 2026-10-16
 
