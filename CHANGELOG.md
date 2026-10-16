@@ -4,6 +4,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.26.6] - 2026-10-16
+
 ### Changed
 - `ipaddr.js` 2.5.0 in the address check for feed hosts. It reports more special-purpose ranges as non-public and parses short forms such as `127.1` as loopback; nothing that was blocked before is allowed now (#20).
 
