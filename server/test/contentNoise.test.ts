@@ -322,3 +322,37 @@ test("pictures that merely have a play-like name inside running text are not tak
   const cleaned = cleanReaderHtml(html, "Title");
   assert.match(cleaned, /Playstation 5/);
 });
+
+test("a byline keeps its author and loses the date the reader already shows in its head", () => {
+  const stats: NoiseStats = {};
+  const html = '<p>von <a href="https://example.test/autor">Michael Bartl</a> I 15.10.2026 - 11:41</p>' + BODY + `<p>${"Wort ".repeat(220)}</p>` +
+    "<p>von Anna Beispiel I 15.10.2026 - 11:41</p>";
+  const cleaned = cleanReaderHtml(html, "Title", stats);
+  assert.match(cleaned, /^<p>von <a href="https:\/\/example\.test\/autor">Michael Bartl<\/a><\/p>/);
+  assert.match(cleaned, /<p>von Anna Beispiel I 15\.10\.2026 - 11:41<\/p>/, "far from the start the line stays");
+  assert.equal(stats["byline-date"], 1);
+  assert.match(cleanReaderHtml("<p>Heute von Meier | 3. Mai 2026</p>" + BODY, "Title"), /Meier \| 3\. Mai 2026/, "only lines that begin as a byline");
+});
+
+test("a comment-rules block at the end of an article is left out of the reader with everything below it", () => {
+  const stats: NoiseStats = {};
+  const html = "<div>" + BODY + "<p>Der Film startet am 11. März 2027.</p><h2>Regeln für Kommentare:</h2><p>1. Seid nett zueinander.</p>" +
+    "<p><strong>Nur angemeldete Benutzer können kommentieren.</strong></p></div>";
+  const cleaned = cleanReaderHtml(html, "Title", stats);
+  assert.match(cleaned, /startet am 11\. März 2027/);
+  assert.doesNotMatch(cleaned, /Regeln für Kommentare|Seid nett|angemeldete/);
+  assert.equal(stats["comment-rules"], 1);
+  const middle = cleanReaderHtml("<h2>Kommentarregeln</h2>" + BODY + "<p>" + "Wort ".repeat(400) + "</p>", "Title");
+  assert.match(middle, /Kommentarregeln/, "a heading with plenty of text after it is not a footer");
+});
+
+test("an ad label with no ad behind it goes, an ad with content keeps its label", () => {
+  const stats: NoiseStats = {};
+  const bare = cleanReaderHtml(BODY + "<p>Anzeige</p><h3>Auch interessant:</h3><ul><li><a href=\"https://example.test/a\">Ein anderer Artikel</a></li></ul>", "Title", stats);
+  assert.doesNotMatch(bare, /Anzeige/);
+  assert.match(bare, /Auch interessant/);
+  assert.equal(stats["empty-ad-label"], 1);
+  const sponsored = cleanReaderHtml(BODY + '<p>Anzeige</p><p><a href="https://shop.test/x"><img src="https://shop.test/x.jpg" alt="Angebot"></a></p>', "Title");
+  assert.match(sponsored, /Anzeige/);
+  assert.match(cleanReaderHtml(BODY + "<p>Anzeige</p><p>Jetzt das Angebot entdecken (Affiliate-Link).</p>", "Title"), /Anzeige/, "text that follows is the ad");
+});

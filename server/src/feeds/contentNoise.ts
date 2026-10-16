@@ -65,7 +65,20 @@ const PRICE = /(?:\d[\d.,]*\s?(?:€|EUR|\$|USD|£|GBP|CHF)|(?:€|\$|£)\s?\d)/
 const MONTHS = "Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember|January|February|March|June|July|October|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|Jan\\.|Feb\\.";
 const TIME_OF_DAY = "(?:[,\\s•·|-]+\\d{1,2}[:.]\\d{2}(?::\\d{2})?(?:\\s?(?:Uhr|[ap]\\.?m\\.?))?)?";
 /** A whole line that is a date, with or without a time: `15. Oktober 2026, 10:51 Uhr`, `Oct 15, 2026`, `15.10.2026`. */
-const DATE_ONLY = new RegExp(`^(?:\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{2,4}|\\d{1,2}\\.?\\s(?:${MONTHS})\\.?\\s\\d{4}|(?:${MONTHS})\\.?\\s\\d{1,2},?\\s\\d{4})${TIME_OF_DAY}$`, "iu");
+const DATE_PART = `(?:\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{2,4}|\\d{1,2}\\.?\\s(?:${MONTHS})\\.?\\s\\d{4}|(?:${MONTHS})\\.?\\s\\d{1,2},?\\s\\d{4})`;
+const DATE_ONLY = new RegExp(`^${DATE_PART}${TIME_OF_DAY}$`, "iu");
+/** The date at the end of a byline (`von Michael Bartl I 15.10.2026 - 11:41`): the author stays, the date is in the reader's head. */
+const BYLINE = /^(von|by|text|autor(in)?|author|written by)\b/i;
+const BYLINE_DATE_TAIL = new RegExp(`(?:^|\\s)[|•·–—I-]\\s*${DATE_PART}${TIME_OF_DAY}\\s*$`, "iu");
+
+function stripBylineDate(block: Element): boolean {
+  const walker = block.ownerDocument.createTreeWalker(block, 4);
+  let last: Text | null = null;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) if (flat(node.textContent)) last = node as Text;
+  if (!last || !BYLINE_DATE_TAIL.test(last.data)) return false;
+  last.data = last.data.replace(BYLINE_DATE_TAIL, "");
+  return true;
+}
 /** A whole line that is a reading time: `2 min`, `5 Min. Lesezeit`, `Lesezeit: 3 Minuten`, `4 min read`. */
 const READING_TIME_ONLY = /^(?:Lesezeit:?\s*)?\d{1,3}\s*(?:min\.?|minuten?|minutes?)(?:\s*(?:Lesezeit|read|lesen))?$/i;
 
@@ -143,6 +156,7 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
     if (text.length <= 60 && charsBefore(root, block) <= 800) {
       if (DATE_ONLY.test(text)) { drop(block, "dateline"); continue; }
       if (READING_TIME_ONLY.test(text)) { drop(block, "reading-time"); continue; }
+      if (BYLINE.test(text) && stripBylineDate(block)) { stats["byline-date"] = (stats["byline-date"] ?? 0) + 1; changed = true; }
     }
     if (headline && normalized(text) === headline && (position < 4 || (heading && position < 14))) { drop(block, "title-repeat"); continue; }
     if (position < 14 && /^(Audiobeitrag|Videobeitrag)\s*>/.test(text) && headline && normalized(text).endsWith(headline)) { drop(block, "title-repeat"); continue; }
@@ -164,6 +178,30 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
       seen.add(key);
     }
   }
+
+  // A comment section's house rules at the end of the text: no reader has comments, so heading and what follows go.
+  const total = (root.textContent ?? "").length;
+  for (const block of leafBlocks(root)) {
+    if (!block.parentNode || !COMMENT_RULES_HEADING.test(flat(block.textContent))) continue;
+    if (total - charsBefore(root, block) > TAIL_CHARACTERS) continue;
+    let node: Node = block;
+    while (node.parentNode && node !== root) {
+      while (node.nextSibling) node.nextSibling.remove();
+      node = node.parentNode;
+    }
+    drop(block, "comment-rules");
+    break;
+  }
+
+  // An ad label whose ad is not there (a script fills it): sponsored content itself stays, the label above nothing goes.
+  const labelled = leafBlocks(root);
+  labelled.forEach((block, index) => {
+    if (!block.parentNode || !AD_LABEL.test(flat(block.textContent)) || block.querySelector("img, iframe, a")) return;
+    const sibling = block.nextElementSibling;
+    if (sibling && (sibling.matches("img, iframe, video, picture, figure, a") || sibling.querySelector("img, iframe, video, picture, a"))) return;
+    const next = labelled.slice(index + 1).find(other => other.parentNode && flat(other.textContent));
+    if (!next || /^H[1-6]$/.test(next.tagName) || AD_LABEL.test(flat(next.textContent))) drop(block, "empty-ad-label");
+  });
 
   // Consent placeholders of embedded third-party content: only the neighbours of a known anchor phrase go.
   const blocks = leafBlocks(root);
@@ -469,6 +507,8 @@ const COMMENT_PATTERNS: RegExp[] = [
   /\b(let us know|tell us) .{0,40}in the comments\b/i,
   /\bNur angemeldete Benutzer können kommentieren\b/i,
 ];
+const AD_LABEL = /^(Anzeige|Werbung|Advertisement|Advertorial|Sponsored|Gesponsert|Promoted)\s*:?$/i;
+const COMMENT_RULES_HEADING = /^(Regeln für Kommentare|Kommentarregeln|Kommentar-Richtlinien|Comment(ing)? (rules|guidelines|policy)|Community[- ]Richtlinien)\s*:?$/i;
 const TAG_LABEL = /^(Schlagw(ö|oe)rter|Schlagworte|Tags?|Keywords|Themen|Topics)\s*:?$/i;
 const VIDEO_CARD = /^\d{1,2}:\d{2}(:\d{2})?(?=\D)\s*\S/;
 const SECTION_LABEL = /^(Auch interessant|Das könnte (dich|Sie|euch) (auch )?interessieren|Mehr zum Thema|Lesen Sie auch|Lies auch|Lest auch|Aktuelle News|Weitere (Artikel|Meldungen|News)|Popular Stories|Related (Stories|Articles|Posts|Reading)|More (Stories|from)|Top Stories|Meistgelesen|Topaktuell|Regeln für Kommentare|Kommentare|Comments?)\b\s*:?/i;
