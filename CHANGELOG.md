@@ -8,6 +8,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 - `ipaddr.js` 2.5.0 in the address check for feed hosts. It reports more special-purpose ranges as non-public and parses short forms such as `127.1` as loopback; nothing that was blocked before is allowed now (#20).
 
 ### Fixed
+- Structured data as article text: JSON-LD that a page framework renders as an element of any name (`<component type="application/ld+json">`), or that stands alone as a block, no longer shows up in the reader.
+- A line that is only a date or a reading time (`15. Oktober 2026, 10:51 Uhr`, `2 min`, `4 min read`) near the start of an article is dropped from the reader, which shows both in its own head; the same lines further into the story stay. German and English month names are recognised.
 - Badges in two colour schemes: a link that holds several images with the same label and no other text (a light and a dark variant that the publisher's stylesheet switches between) no longer shows all of them at full size in the reader. The link keeps its label as text, or its first image when it has none. The call to action itself stays.
 - A feed's thumbnail as the hero picture: when the feed names a small size of a picture (for example `…__wide__148` or `…-720x405.jpg`) and the article shows the same picture in a clearly larger size, that size becomes the item's picture, up to 2000 px wide. It applies to new items and as soon as an article's full text is stored.
 

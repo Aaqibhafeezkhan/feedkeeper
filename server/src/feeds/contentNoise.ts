@@ -59,6 +59,19 @@ const CONSENT_COMPANIONS = [
   /Personenbezogene Daten können an Drittplattformen/i, /^Link zum .+-Inhalt$/i, /^Mehr dazu in unserer Datenschutzerklärung/i,
 ];
 
+const MONTHS = "Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember|January|February|March|June|July|October|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|Jan\\.|Feb\\.";
+const TIME_OF_DAY = "(?:[,\\s•·|-]+\\d{1,2}[:.]\\d{2}(?::\\d{2})?(?:\\s?(?:Uhr|[ap]\\.?m\\.?))?)?";
+/** A whole line that is a date, with or without a time: `15. Oktober 2026, 10:51 Uhr`, `Oct 15, 2026`, `15.10.2026`. */
+const DATE_ONLY = new RegExp(`^(?:\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{2,4}|\\d{1,2}\\.?\\s(?:${MONTHS})\\.?\\s\\d{4}|(?:${MONTHS})\\.?\\s\\d{1,2},?\\s\\d{4})${TIME_OF_DAY}$`, "iu");
+/** A whole line that is a reading time: `2 min`, `5 Min. Lesezeit`, `Lesezeit: 3 Minuten`, `4 min read`. */
+const READING_TIME_ONLY = /^(?:Lesezeit:?\s*)?\d{1,3}\s*(?:min\.?|minuten?|minutes?)(?:\s*(?:Lesezeit|read|lesen))?$/i;
+
+/** JSON-LD and similar: an object with a schema context or type, standing as text. */
+function isStructuredData(text: string): boolean {
+  if (text.length < 20 || !text.startsWith("{") || !/"@(context|type)"/.test(text)) return false;
+  try { return typeof JSON.parse(text) === "object"; } catch { return false; }
+}
+
 function removeReaderNoise(root: DocumentFragment, title: string | null | undefined, stats: NoiseStats): boolean {
   let changed = false;
   const drop = (element: Element, rule: string) => {
@@ -83,6 +96,15 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
     if (onlyLinks) drop(list, "breadcrumb");
   }
 
+  // Structured data is for machines. Frameworks render it as an element of any name (`<component type="application/ld+json">`),
+  // and a stray block may hold nothing else: neither is text for a reader.
+  for (const element of [...root.querySelectorAll("[type]")]) {
+    if (/^application\/([\w.+-]*\+)?json(;.*)?$/i.test(element.getAttribute("type") ?? "")) drop(element, "structured-data");
+  }
+  for (const block of leafBlocks(root)) {
+    if (block.parentNode && isStructuredData(flat(block.textContent))) drop(block, "structured-data");
+  }
+
   const headline = normalized(title ?? "");
   const seen = new Set<string>();
   let leading = 0;
@@ -101,6 +123,11 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
       if (/^(\d{1,2}\.\s?\d{1,2}\.\s?\d{2,4}|[A-Z][a-z]{2,8}\.? \d{1,2}, \d{4})([,\s•·|-]+\d{1,2}[:.]\d{2}( Uhr)?)?$/.test(text)) { drop(block, "dateline"); continue; }
     }
 
+    // Near the start, a line that is only a date or a reading time repeats what the reader shows in its own head.
+    if (text.length <= 60 && charsBefore(root, block) <= 800) {
+      if (DATE_ONLY.test(text)) { drop(block, "dateline"); continue; }
+      if (READING_TIME_ONLY.test(text)) { drop(block, "reading-time"); continue; }
+    }
     if (headline && normalized(text) === headline && (position < 4 || (heading && position < 14))) { drop(block, "title-repeat"); continue; }
     if (position < 14 && /^(Audiobeitrag|Videobeitrag)\s*>/.test(text) && headline && normalized(text).endsWith(headline)) { drop(block, "title-repeat"); continue; }
     if (/^[>›»|/·•–—-]+$/.test(text)) { drop(block, "separator"); continue; }

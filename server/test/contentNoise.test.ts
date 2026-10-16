@@ -234,3 +234,28 @@ test("variants without a label collapse to the first image", () => {
   assert.match(cleaned, /dark\.png/);
   assert.doesNotMatch(cleaned, /light\.png/);
 });
+
+test("structured data standing as text and a lone date or reading time near the start do not reach the reader", () => {
+  const ld = JSON.stringify({ "@context": "https://schema.org", "@type": "ImageObject", url: "https://example.test/a.jpg", caption: "Ein Airbus über der Landebahn" });
+  const stats: NoiseStats = {};
+  const html = '<header><p>Die Lufthansa hat ihrem ersten Airbus einen Namen gegeben. Der Langstreckenjet kommt Mitte November nach München, sein erster Linienflug ist für Dezember geplant.</p>' +
+    '<p>15. Oktober 2026, 10:51 Uhr</p><custom-list :article="1"><p>2 min</p></custom-list>' +
+    `<figure><img src="https://example.test/a.jpg" alt="x"><figcaption>Ein Airbus über der Landebahn</figcaption><component :is="'script'" type="application/ld+json">${ld}</component></figure></header>` +
+    `<div>${ld}</div>` + BODY + '<p>Der Termin steht für den 3. Dezember 2026 fest, wie die Fluggesellschaft mitteilte.</p>';
+  const cleaned = cleanReaderHtml(html, "Title", stats);
+  assert.doesNotMatch(cleaned, /@context|schema\.org/);
+  assert.doesNotMatch(cleaned, /15\. Oktober 2026/);
+  assert.doesNotMatch(cleaned, />2 min</);
+  for (const kept of ["Die Lufthansa hat ihrem ersten Airbus", "Ein Airbus über der Landebahn", "ministry confirmed", "Der Termin steht für den 3. Dezember 2026 fest"]) assert.match(cleaned, new RegExp(kept));
+  assert.equal(stats["structured-data"], 2);
+  assert.equal(stats["dateline"], 1);
+  assert.equal(stats["reading-time"], 1);
+});
+
+test("dates and reading times inside the story stay", () => {
+  const body = BODY + `<p>${"Weiterer Absatz mit ausreichend Text. ".repeat(25)}</p>` + '<p>Am 15. Oktober 2026 fiel die Entscheidung, die Frist läuft bis zum 3. Dezember 2026.</p><p>5 min</p><p>Oct 15, 2026</p>';
+  const cleaned = cleanReaderHtml(body, "Title");
+  assert.match(cleaned, /Am 15\. Oktober 2026 fiel die Entscheidung/);
+  assert.match(cleaned, />5 min</, "far from the start a line like this may be part of the story");
+  assert.match(cleaned, />Oct 15, 2026</);
+});
