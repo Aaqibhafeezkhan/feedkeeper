@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+- Product cards of shop links: a card whose picture is only a CSS background (which no reader draws) and that holds a link and a price (a label such as "Produkthinweis", the product name and its price) is left out of the reader as a whole, so no label stands over an empty space and no price of the day outlasts the article. The article's own links and its affiliate disclosure stay.
+
 ## [0.26.6] - 2026-10-16
 
 ### Changed

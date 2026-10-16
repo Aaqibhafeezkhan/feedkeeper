@@ -259,3 +259,23 @@ test("dates and reading times inside the story stay", () => {
   assert.match(cleaned, />5 min</, "far from the start a line like this may be part of the story");
   assert.match(cleaned, />Oct 15, 2026</);
 });
+
+test("a product card whose picture is a CSS background and whose price is a snapshot is dropped with its label", () => {
+  const stats: NoiseStats = {};
+  const card = '<div id="preview"><div class="header"><span>Produkthinweis</span></div><div class="content">' +
+    '<div style="background: url(\'https://m.example.test/i/hue.jpg\') center center no-repeat; background-size: cover;"></div>' +
+    '<div><span><a href="https://www.amazon.de/dp/B0FKH9CD5C?tag=x">Philips Hue Bridge Pro</a></span><span>88,89 EUR</span><span>99,99 EUR</span></div></div></div>';
+  const html = BODY + card + '<p>Mehr dazu in der App-Beschreibung, die sich ausführlich mit den neuen Funktionen und der Bedienung beschäftigt.</p>' + card +
+    '<p>Dieser Artikel enthält Affiliate-Links. Wer darüber einkauft unterstützt uns mit einem Teil des unveränderten Kaufpreises. <a href="https://example.test/affiliate">Was ist das?</a></p>';
+  const cleaned = cleanReaderHtml(html, "Title", stats);
+  assert.doesNotMatch(cleaned, /Produkthinweis|Philips Hue|88,89|hue\.jpg/);
+  for (const kept of ["ministry confirmed", "Mehr dazu in der App-Beschreibung", "Dieser Artikel enthält Affiliate-Links", "Was ist das?"]) assert.match(cleaned, new RegExp(kept));
+  assert.equal(stats["product-card"], 2);
+});
+
+test("an image with a background inside a long text, or a price without a card, stays", () => {
+  const shell = '<div style="background: url(https://example.test/hero.jpg)"></div>';
+  const long = BODY + `<div>${shell}<p>${"Ein langer Absatz über die Preise. ".repeat(12)} Der Preis liegt bei 99 EUR. <a href="https://example.test/a">Mehr</a></p></div>`;
+  assert.match(cleanReaderHtml(long, "Title"), /Der Preis liegt bei 99 EUR/);
+  assert.match(cleanReaderHtml(BODY + '<p>Das Gerät kostet 199 EUR, mehr unter <a href="https://example.test/p">diesem Link</a>.</p>', "Title"), /kostet 199 EUR/);
+});

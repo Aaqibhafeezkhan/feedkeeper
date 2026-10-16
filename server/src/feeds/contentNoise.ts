@@ -59,6 +59,9 @@ const CONSENT_COMPANIONS = [
   /Personenbezogene Daten können an Drittplattformen/i, /^Link zum .+-Inhalt$/i, /^Mehr dazu in unserer Datenschutzerklärung/i,
 ];
 
+const PRODUCT_CARD_CHARACTERS = 220;
+/** An amount of money: `88,89 EUR`, `$199`, `19.99 €`. */
+const PRICE = /(?:\d[\d.,]*\s?(?:€|EUR|\$|USD|£|GBP|CHF)|(?:€|\$|£)\s?\d)/;
 const MONTHS = "Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember|January|February|March|June|July|October|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|Jan\\.|Feb\\.";
 const TIME_OF_DAY = "(?:[,\\s•·|-]+\\d{1,2}[:.]\\d{2}(?::\\d{2})?(?:\\s?(?:Uhr|[ap]\\.?m\\.?))?)?";
 /** A whole line that is a date, with or without a time: `15. Oktober 2026, 10:51 Uhr`, `Oct 15, 2026`, `15.10.2026`. */
@@ -94,6 +97,19 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
       return links.length === 1 && label.length > 0 && label.length <= 30 && flat(links[0].textContent) === label;
     });
     if (onlyLinks) drop(list, "breadcrumb");
+  }
+
+  // A product card of a shop link: its picture is a CSS background, which no reader draws, and its price is a snapshot
+  // that is out of date when the article is read later. What is left would be a label, a link and a number.
+  for (const shell of [...root.querySelectorAll("[style*='url(' i]")]) {
+    if (!shell.parentNode || !/background(-image)?\s*:[^;]*url\(/i.test(shell.getAttribute("style") ?? "") || flat(shell.textContent) !== "") continue;
+    let card: Element | null = null;
+    for (let ancestor = shell.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      const text = flat(ancestor.textContent);
+      if (text.length > PRODUCT_CARD_CHARACTERS) break;
+      if (ancestor.querySelector("a[href]") && PRICE.test(text)) card = ancestor;
+    }
+    if (card) drop(card, "product-card");
   }
 
   // Structured data is for machines. Frameworks render it as an element of any name (`<component type="application/ld+json">`),
