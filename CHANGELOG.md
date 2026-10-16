@@ -6,6 +6,7 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ### Fixed
 - Product cards of shop links: a card whose picture is only a CSS background (which no reader draws) and that holds a link and a price (a label such as "Produkthinweis", the product name and its price) is left out of the reader as a whole, so no label stands over an empty space and no price of the day outlasts the article. The article's own links and its affiliate disclosure stay.
+- Video players in the reader: the play-button picture of a player (alt text such as "Video starten" or "Abspielen", or a file named `play_icon.svg`) is a picture no reader can draw without the publisher's script, and showed up as a broken image. It is removed; a player that is only a script-driven button without an address is left out with its label. What has an address stays as one plain link to the video, marked `data-media="video"`: a player's two links to the same video become one, and embeds of YouTube, Vimeo and Dailymotion as well as `<video>` elements with a source turn into a link as well. Embeds of other sites are left as they were.
 
 ## [0.26.6] - 2026-10-16
 

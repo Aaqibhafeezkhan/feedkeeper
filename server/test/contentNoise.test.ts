@@ -148,7 +148,8 @@ test("a games site: video card with its autoplay label and a consent block of an
     '<p>Link zum <a href="https://reddit.test/r/1">Reddit-Inhalt</a></p>' + STORY;
   const reader = cleanReaderHtml(html, "GTA 6");
   assert.doesNotMatch(reader, /Autoplay|externen Inhalt|Reddit-Inhalte erlauben|Drittplattformen|Link zum/);
-  assert.match(reader, /14:39/);
+  assert.match(reader, /<a href="https:\/\/example\.test\/videos\/a,1\.html" data-media="video">Wird GTA 6 jetzt zur Dating-Sim\?<\/a>/);
+  assert.doesNotMatch(reader, /14:39|play\.svg/, "the duration was part of the player, whose picture a reader cannot show");
   assert.match(reader, /So sieht der Marketing-Gag aus/);
   const text = derivedText(html, "GTA 6");
   assert.doesNotMatch(text, /14:39|Autoplay|Reddit-Inhalt/);
@@ -278,4 +279,46 @@ test("an image with a background inside a long text, or a price without a card, 
   const long = BODY + `<div>${shell}<p>${"Ein langer Absatz über die Preise. ".repeat(12)} Der Preis liegt bei 99 EUR. <a href="https://example.test/a">Mehr</a></p></div>`;
   assert.match(cleanReaderHtml(long, "Title"), /Der Preis liegt bei 99 EUR/);
   assert.match(cleanReaderHtml(BODY + '<p>Das Gerät kostet 199 EUR, mehr unter <a href="https://example.test/p">diesem Link</a>.</p>', "Title"), /kostet 199 EUR/);
+});
+
+const GAMESTAR_PLAYER = '<p><span><a href="https://www.gamestar.de/videos/wildwood,142205.html" data-videoid="142205" title="Wildwood im Trailer">' +
+  '<span><span><img src="https://static.example.test/assets/images/play_icon.svg" alt="Video starten"></span><span><i></i>2:27</span></span></a></span>' +
+  '<a href="https://www.gamestar.de/videos/wildwood,142205.html" title="Wildwood im Trailer"><span>Wildwood im Trailer</span></a></p>';
+
+test("a player's play-button picture goes and its two links to the same video become one marked link", () => {
+  const stats: NoiseStats = {};
+  const cleaned = cleanReaderHtml(BODY + GAMESTAR_PLAYER, "Title", stats);
+  assert.doesNotMatch(cleaned, /play_icon|2:27|<img/);
+  assert.equal(cleaned.match(/<a /g)?.length, 1);
+  assert.match(cleaned, /<a href="https:\/\/www\.gamestar\.de\/videos\/wildwood,142205\.html" title="Wildwood im Trailer" data-media="video">Wildwood im Trailer<\/a>/);
+  assert.equal(stats["video"], 1);
+});
+
+test("a script-driven player button without an address is left out with its label", () => {
+  const player = '<h3>Hier der zweite Trailer:</h3><div role="button" tabindex="0"><p>Watchmen - Trailer 2 (Deutsch)</p>' +
+    '<p><img src="https://example.test/_next/static/abc.svg" alt="Abspielen" width="70" height="70"></p></div>';
+  const cleaned = cleanReaderHtml(BODY + player + "<p>Die Handlung spielt im Jahr 1985, in dem Richard Nixon noch immer Präsident ist.</p>", "Title");
+  assert.doesNotMatch(cleaned, /Watchmen|Abspielen|<img|role=/);
+  assert.match(cleaned, /Hier der zweite Trailer/);
+  assert.match(cleaned, /Richard Nixon/, "the article text around the player stays");
+});
+
+test("embedded players of the common video sites become a link, other embeds are left as they are", () => {
+  const stats: NoiseStats = {};
+  const html = BODY + '<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0" title="Ein Clip" width="560"></iframe></div>' +
+    '<iframe src="//player.vimeo.com/video/12345"></iframe><iframe src="https://www.example.test/widget"></iframe>' +
+    '<video controls><source src="https://cdn.example.test/clip.mp4" type="video/mp4"></video>';
+  const cleaned = cleanReaderHtml(html, "Title", stats);
+  assert.match(cleaned, /<a href="https:\/\/www\.youtube\.com\/watch\?v=dQw4w9WgXcQ" data-media="video">Ein Clip<\/a>/);
+  assert.match(cleaned, /<a href="https:\/\/vimeo\.com\/12345" data-media="video">Vimeo<\/a>/);
+  assert.match(cleaned, /<a href="https:\/\/cdn\.example\.test\/clip\.mp4" data-media="video">Video<\/a>/);
+  assert.match(cleaned, /<iframe src="https:\/\/www\.example\.test\/widget"/);
+  assert.doesNotMatch(cleaned, /youtube-nocookie|<source|<video/);
+  assert.equal(stats["video"], 3);
+});
+
+test("pictures that merely have a play-like name inside running text are not taken for a player", () => {
+  const html = BODY + '<p>Das <img src="https://example.test/photo.jpg" alt="Playstation 5"> ist zu sehen.</p>';
+  const cleaned = cleanReaderHtml(html, "Title");
+  assert.match(cleaned, /Playstation 5/);
 });

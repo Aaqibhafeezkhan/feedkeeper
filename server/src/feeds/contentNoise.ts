@@ -250,9 +250,125 @@ export function cleanReaderHtml(html: string, title?: string | null, stats: Nois
   const root = JSDOM.fragment(html);
   const images = resolveCustomImages(root, stats);
   const variants = collapseImageVariants(root, stats);
+  const videos = resolveVideoPlayers(root, stats);
   const noise = removeReaderNoise(root, title, stats);
   const typography = removeTypography(root, stats);
-  return images || variants || noise || typography ? serialize(root) : html;
+  videos.links.forEach(link => { if (root.contains(link)) link.setAttribute("data-media", "video"); });
+  return images || variants || videos.changed || noise || typography ? serialize(root) : html;
+}
+
+const PLAY_LABEL = /^(video starten|video abspielen|abspielen|wiedergabe( starten)?|play( video)?|watch( video)?|start video)$/i;
+const PLAY_SOURCE = /(?:^|[/_.-])play[-_]?(?:icon|button|btn)?\.(?:svg|png|webp|gif)(?:[?#]|$)/i;
+const DURATION = /^\d{1,2}:\d{2}(:\d{2})?$/;
+const PLAYER_BLOCK_LIMIT = 120;
+
+function isPlayOverlay(image: Element): boolean {
+  return PLAY_LABEL.test(flat(image.getAttribute("alt"))) || PLAY_SOURCE.test((image.getAttribute("src") ?? "").trim());
+}
+
+/** Takes away what is left empty once a player is gone, up to (not including) the fragment itself. */
+function pruneEmpty(node: Node | null): void {
+  while (node && node.parentNode && node.nodeType === 1) {
+    const element = node as Element;
+    if (flat(element.textContent) !== "" || element.querySelector("img, picture, video, iframe, a[href]")) return;
+    const parent: Node | null = element.parentNode;
+    element.remove();
+    node = parent;
+  }
+}
+
+/** Direct video URL of the embeds that are common enough to be worth a link. Anything else is not turned into a link. */
+function embedTarget(source: string): { url: string; name: string } | null {
+  let address: URL;
+  try { address = new URL(source.startsWith("//") ? `https:${source}` : source); } catch { return null; }
+  const host = address.hostname.replace(/^www\./, "");
+  const segments = address.pathname.split("/").filter(Boolean);
+  if (/^youtube(-nocookie)?\.com$/.test(host) && segments[0] === "embed" && /^[\w-]{6,}$/.test(segments[1] ?? "")) {
+    return { url: `https://www.youtube.com/watch?v=${segments[1]}`, name: "YouTube" };
+  }
+  if (host === "player.vimeo.com" && segments[0] === "video" && /^\d+$/.test(segments[1] ?? "")) {
+    return { url: `https://vimeo.com/${segments[1]}`, name: "Vimeo" };
+  }
+  if (host === "dailymotion.com" && segments[0] === "embed" && segments[1] === "video" && /^\w+$/.test(segments[2] ?? "")) {
+    return { url: `https://www.dailymotion.com/video/${segments[2]}`, name: "Dailymotion" };
+  }
+  return null;
+}
+
+function videoLink(document: Document, url: string, text: string): Element {
+  const paragraph = document.createElement("p");
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.textContent = text;
+  paragraph.append(link);
+  return paragraph;
+}
+
+/**
+ * Players need the publisher's script: a reader without it shows their play-button picture as a broken image and
+ * leaves a dead block. What can be reached stays as one plain link to the video (`data-media="video"` tells a client
+ * that the target is a video page); what cannot, because the player is a script-driven button without an address,
+ * is left out. The video itself is never embedded here: that is for the client to decide.
+ */
+function resolveVideoPlayers(root: DocumentFragment, stats: NoiseStats): { changed: boolean; links: Element[] } {
+  const links: Element[] = [];
+  let changed = false;
+  const count = () => { stats["video"] = (stats["video"] ?? 0) + 1; changed = true; };
+
+  for (const image of [...root.querySelectorAll("img")].filter(isPlayOverlay)) {
+    if (!root.contains(image)) continue;
+    const anchor = image.closest("a[href]");
+    if (anchor) {
+      const parent = anchor.parentNode;
+      image.remove();
+      const href = anchor.getAttribute("href");
+      const scope = anchor.closest("p, div, figure, li") ?? anchor.parentElement;
+      const twin = scope ? [...scope.querySelectorAll("a[href]")].find(other => other !== anchor && other.getAttribute("href") === href) : undefined;
+      const label = flat(anchor.textContent);
+      if (twin) {
+        anchor.remove();
+        pruneEmpty(parent);
+        links.push(twin);
+      } else {
+        if (label === "" || DURATION.test(label)) anchor.textContent = flat(anchor.getAttribute("title")) || "Video";
+        links.push(anchor);
+      }
+      count();
+      continue;
+    }
+    // The player block is the widest wrapper that holds nothing but the label, the picture and no link to follow.
+    let block: Element = image;
+    while (block.parentElement) {
+      const parent: Element = block.parentElement;
+      if (flat(parent.textContent).length > PLAYER_BLOCK_LIMIT || parent.querySelector("a[href]") || parent.querySelectorAll("img").length > 1) break;
+      block = parent;
+    }
+    const parent = block.parentNode;
+    block.remove();
+    pruneEmpty(parent);
+    count();
+  }
+
+  for (const frame of [...root.querySelectorAll("iframe")]) {
+    const target = embedTarget(frame.getAttribute("src") ?? frame.getAttribute("data-src") ?? "");
+    if (!target) continue;
+    const parent = frame.parentNode;
+    const replacement = videoLink(frame.ownerDocument, target.url, flat(frame.getAttribute("title")) || target.name);
+    frame.replaceWith(replacement);
+    pruneEmpty(parent);
+    links.push(replacement.querySelector("a") as Element);
+    count();
+  }
+
+  for (const video of [...root.querySelectorAll("video")]) {
+    const source = (video.getAttribute("src") ?? video.querySelector("source[src]")?.getAttribute("src") ?? "").trim();
+    if (!/^https?:\/\//i.test(source)) continue;
+    const replacement = videoLink(video.ownerDocument, source, flat(video.getAttribute("title")) || "Video");
+    video.replaceWith(replacement);
+    links.push(replacement.querySelector("a") as Element);
+    count();
+  }
+  return { changed, links };
 }
 
 /**
