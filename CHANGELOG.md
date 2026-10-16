@@ -4,6 +4,22 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-10-16
+
+### Changed
+- Database performance tuning: SQLite connections configure WAL pragmas (`synchronous = NORMAL`, `busy_timeout = 5000`, `temp_store = MEMORY`, `cache_size = -65536`) for lower disk latency during concurrent writes.
+- Change log hydration and sequence tracking: change entity lookups for item content, read/bookmark states and notes are batched into single queries instead of separate lookups per change row. Monotonic sequence numbers survive change log pruning through dedicated triggers and `sync_state.last_seq`.
+- Query planning and memory footprint: item search separates article ID ranking and pagination into a common table expression before joining full HTML columns, avoiding large text copies in temporary sort tables. Unused feed and retention cleanup queries avoid correlated subqueries over JSON arrays.
+- Reader noise cleanup and worker scheduling: leading character counting short-circuits once the beginning of the article is passed, eliminating quadratic range traversals. Full-text worker queues back off adaptively, and image cache lookups reject known missing images immediately before queueing.
+
+### Fixed
+- FTS5 update trigger: the update trigger for full-text search columns matches the virtual table's schema, avoiding index inconsistencies during article updates.
+- Token and OAuth touch throttling: access token and OAuth grant `last_used_at` timestamps are throttled in-memory to update at most once every 5 minutes, eliminating redundant database writes on frequent API requests.
+- Full-text host cooldowns: internal queue deferrals no longer place the entire publisher host on cooldown, preserving throughput for other queued items from the same host.
+
+### Upgrade notes
+- Migration `0039_performance_indexes.sql` adds composite indexes for cascade deletes, housekeeping, item pagination and full-text candidates, and configures monotonic sync state sequence floor triggers.
+
 ## [0.27.1] - 2026-10-16
 
 ### Fixed
@@ -487,7 +503,17 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.25.1...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.27.2...HEAD
+[0.27.2]: https://github.com/visualfusion/feedkeeper/compare/v0.27.1...v0.27.2
+[0.27.1]: https://github.com/visualfusion/feedkeeper/compare/v0.27.0...v0.27.1
+[0.27.0]: https://github.com/visualfusion/feedkeeper/compare/v0.26.6...v0.27.0
+[0.26.6]: https://github.com/visualfusion/feedkeeper/compare/v0.26.5...v0.26.6
+[0.26.5]: https://github.com/visualfusion/feedkeeper/compare/v0.26.4...v0.26.5
+[0.26.4]: https://github.com/visualfusion/feedkeeper/compare/v0.26.3...v0.26.4
+[0.26.3]: https://github.com/visualfusion/feedkeeper/compare/v0.26.2...v0.26.3
+[0.26.2]: https://github.com/visualfusion/feedkeeper/compare/v0.26.1...v0.26.2
+[0.26.1]: https://github.com/visualfusion/feedkeeper/compare/v0.26.0...v0.26.1
+[0.26.0]: https://github.com/visualfusion/feedkeeper/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/visualfusion/feedkeeper/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/visualfusion/feedkeeper/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/visualfusion/feedkeeper/compare/v0.24.0...v0.24.1
