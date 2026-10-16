@@ -201,6 +201,7 @@ test("server editions and app preferences keep devices in step without changing 
     assert.equal(editions.getEditionState(owner, later).status, "expired", "curators can publish the next scheduled issue");
     assert.equal(editions.getEditionState(owner, later).revision, first.revision);
     assert.deepEqual(editions.getEdition(owner, later), first, "readers keep the exact issue, including its original period");
+    assert.equal(listChanges(owner, 0).changes.find((c) => c.entity === "edition")?.op, "upsert");
     assert.equal(currentSeq(owner), sequence, "checking expiry does not write or generate anything");
   });
 

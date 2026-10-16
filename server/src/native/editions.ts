@@ -264,19 +264,23 @@ export function editionCandidates(userId: number, now = new Date(), limit = 200)
   const rows = db.prepare<[number, number, number, string, string], {
     id: number; feed_id: number; folder_id: number | null; title: string | null; link: string | null;
     content_snippet: string | null; image_url: string | null; published: string; content_chars: number; source_name: string | null; folder_name: string | null;
-  }>(`SELECT * FROM (
-      SELECT i.id, i.feed_id, s.folder_id, i.title, i.link, i.content_snippet, i.image_url,
-        coalesce(s.label, f.title) AS source_name, folders.name AS folder_name,
-        strftime('%Y-%m-%dT%H:%M:%fZ', coalesce(julianday(i.published_at), julianday(i.created_at))) AS published,
-        length(coalesce(i.full_content_html, i.content_html, i.content_snippet, '')) AS content_chars,
-        row_number() OVER (PARTITION BY i.feed_id ORDER BY coalesce(julianday(i.published_at), julianday(i.created_at)) DESC, i.id DESC) AS source_rank
-      FROM items i JOIN subscriptions s ON s.feed_id = i.feed_id AND s.user_id = ?
-      JOIN feeds f ON f.id = i.feed_id LEFT JOIN folders ON folders.id = s.folder_id
-      WHERE NOT EXISTS (SELECT 1 FROM item_reads r WHERE r.item_id = i.id AND r.user_id = ?)
-        AND NOT EXISTS (SELECT 1 FROM user_muted_keywords m WHERE m.user_id = ? AND
-          (instr(lower(coalesce(i.title, '')), lower(m.keyword)) > 0 OR instr(lower(coalesce(i.content_snippet, '')), lower(m.keyword)) > 0))
-        AND coalesce(julianday(i.published_at), julianday(i.created_at)) BETWEEN julianday(?) AND julianday(?)
-    ) WHERE source_rank <= 40 ORDER BY source_rank, published DESC, id DESC LIMIT 4000`)
+  }>(`SELECT r.id, r.feed_id, r.folder_id, r.title, r.link, r.content_snippet, r.image_url,
+        r.source_name, r.folder_name, r.published, r.source_rank,
+        length(coalesce(full_item.full_content_html, full_item.content_html, r.content_snippet, '')) AS content_chars
+      FROM (
+        SELECT i.id, i.feed_id, s.folder_id, i.title, i.link, i.content_snippet, i.image_url,
+          coalesce(s.label, f.title) AS source_name, folders.name AS folder_name,
+          strftime('%Y-%m-%dT%H:%M:%fZ', coalesce(julianday(i.published_at), julianday(i.created_at))) AS published,
+          row_number() OVER (PARTITION BY i.feed_id ORDER BY coalesce(julianday(i.published_at), julianday(i.created_at)) DESC, i.id DESC) AS source_rank
+        FROM items i JOIN subscriptions s ON s.feed_id = i.feed_id AND s.user_id = ?
+        JOIN feeds f ON f.id = i.feed_id LEFT JOIN folders ON folders.id = s.folder_id
+        WHERE NOT EXISTS (SELECT 1 FROM item_reads r WHERE r.item_id = i.id AND r.user_id = ?)
+          AND NOT EXISTS (SELECT 1 FROM user_muted_keywords m WHERE m.user_id = ? AND
+            (instr(lower(coalesce(i.title, '')), lower(m.keyword)) > 0 OR instr(lower(coalesce(i.content_snippet, '')), lower(m.keyword)) > 0))
+          AND coalesce(julianday(i.published_at), julianday(i.created_at)) BETWEEN julianday(?) AND julianday(?)
+      ) r
+      JOIN items full_item ON full_item.id = r.id
+      WHERE r.source_rank <= 40 ORDER BY r.source_rank, r.published DESC, r.id DESC LIMIT 4000`)
     .all(userId, userId, userId, new Date(now.getTime() - 7 * 86_400_000).toISOString(), now.toISOString());
   const scored: EditionCandidate[] = rows.filter((row) => row.folder_id === null ? prefs.showUnfiled : !prefs.hiddenFolderIds.includes(row.folder_id))
     .map((row) => ({

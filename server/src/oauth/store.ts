@@ -141,12 +141,20 @@ export interface ResolvedGrant {
   grantId: number;
 }
 
+const grantLastTouch = new Map<number, number>();
+const GRANT_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
+
 export function resolveAccessToken(token: string): ResolvedGrant | null {
   const row = db
     .prepare<[string], GrantRow>("SELECT * FROM oauth_grants WHERE access_hash = ?")
     .get(hash(token));
   if (!row || row.access_expires_at <= now()) return null;
-  db.prepare("UPDATE oauth_grants SET last_used_at = ? WHERE id = ?").run(now(), row.id);
+  const nowMs = Date.now();
+  const lastTouch = grantLastTouch.get(row.id) ?? 0;
+  if (!row.last_used_at || nowMs - lastTouch >= GRANT_TOUCH_INTERVAL_MS) {
+    grantLastTouch.set(row.id, nowMs);
+    db.prepare("UPDATE oauth_grants SET last_used_at = ? WHERE id = ?").run(now(), row.id);
+  }
   return { userId: row.user_id, scope: row.scope, grantId: row.id };
 }
 
@@ -157,6 +165,7 @@ export function revokeByToken(token: string, clientId: string | null): boolean {
     .prepare<[string, string], { id: number; client_id: string }>("SELECT id, client_id FROM oauth_grants WHERE access_hash = ? OR refresh_hash = ?")
     .get(tokenHash, tokenHash);
   if (!grant || (clientId && grant.client_id !== clientId)) return false;
+  grantLastTouch.delete(grant.id);
   return db.prepare("DELETE FROM oauth_grants WHERE id = ?").run(grant.id).changes > 0;
 }
 
