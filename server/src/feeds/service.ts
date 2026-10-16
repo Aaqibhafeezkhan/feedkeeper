@@ -5,7 +5,7 @@ import {
   isUserSubscribed,
   subscribe,
   unsubscribe as unsubscribeRepo,
-  listSubscriptionsForUser,
+  findSubscriptionForUser,
   updateSubscriptionLabel,
   updateSubscriptionFolder,
   updateFeedPollInterval,
@@ -94,7 +94,7 @@ export async function subscribeToFeed(
     throw new NoFeedsFoundError();
   }
 
-  const subscription = listSubscriptionsForUser(userId).find((s) => s.id === feed!.id);
+  const subscription = findSubscriptionForUser(userId, feed!.id);
   if (!subscription) throw new FeedError("subscription_lookup_failed");
   return subscription;
 }
@@ -150,7 +150,7 @@ export function updateFeedSettings(
     updateFeedPollInterval(feedId, minutes);
   }
 
-  const subscription = listSubscriptionsForUser(userId).find((s) => s.id === feedId);
+  const subscription = findSubscriptionForUser(userId, feedId);
   if (!subscription) throw new FeedError("subscription_lookup_failed");
   return subscription;
 }
@@ -172,7 +172,7 @@ export async function changeFeedUrl(
   const { url } = await resolveFeedUrl(inputUrl);
   let target = feedId;
   const lookup = () => {
-    const subscription = listSubscriptionsForUser(userId).find((s) => s.id === target);
+    const subscription = findSubscriptionForUser(userId, target);
     if (!subscription) throw new FeedError("subscription_lookup_failed");
     return subscription;
   };

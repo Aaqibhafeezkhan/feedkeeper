@@ -31,10 +31,10 @@ WHEN OLD.title IS NOT NEW.title
   OR OLD.content_html IS NOT NEW.content_html
   OR OLD.full_content_html IS NOT NEW.full_content_html
 BEGIN
-  INSERT INTO items_fts(items_fts, rowid, title, content_snippet, content_html)
-  VALUES ('delete', OLD.id, COALESCE(OLD.title, ''), COALESCE(OLD.content_snippet, ''), COALESCE(OLD.full_content_html, OLD.content_html, ''));
-  INSERT INTO items_fts(rowid, title, content_snippet, content_html)
-  VALUES (NEW.id, COALESCE(NEW.title, ''), COALESCE(NEW.content_snippet, ''), COALESCE(NEW.full_content_html, NEW.content_html, ''));
+  INSERT INTO items_fts(items_fts, rowid, title, content_snippet, content_html, full_content_html)
+  VALUES ('delete', old.id, old.title, old.content_snippet, old.content_html, old.full_content_html);
+  INSERT INTO items_fts(rowid, title, content_snippet, content_html, full_content_html)
+  VALUES (new.id, new.title, new.content_snippet, new.content_html, new.full_content_html);
 END;
 
 -- Monotonic per-user sync sequence high-water mark across change log pruning

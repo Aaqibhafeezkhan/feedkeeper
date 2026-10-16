@@ -144,10 +144,11 @@ itemsRouter.post("/:itemId/extract-content", async (req, res) => {
     return;
   }
 
-  const [served] = withArchivedImages([{ id: result.id, link: findItemById(result.id)?.link ?? null, full_content_html: result.fullContentHtml }], requestOrigin(req));
+  const currentItem = findItemById(result.id);
+  const [served] = withArchivedImages([{ id: result.id, link: currentItem?.link ?? null, full_content_html: result.fullContentHtml }], requestOrigin(req));
   res.json({
     id: result.id,
-    full_content_html: readerHtml(served.full_content_html, result.title ?? findItemById(result.id)?.title, findItemById(result.id)?.author),
+    full_content_html: readerHtml(served.full_content_html, result.title ?? currentItem?.title, currentItem?.author),
     ...(result.cached ? {} : { title: result.title, byline: result.byline }),
     cached: result.cached,
   });

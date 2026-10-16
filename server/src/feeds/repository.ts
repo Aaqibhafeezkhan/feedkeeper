@@ -150,8 +150,8 @@ export function removeFeedIfUnused(feedId: number): void {
   if (countFeedSubscribers(feedId) > 0) return;
   db.prepare(
     `DELETE FROM items WHERE feed_id = ? AND id NOT IN (SELECT item_id FROM item_bookmarks) AND id NOT IN (SELECT item_id FROM item_notes)
-      AND NOT EXISTS (SELECT 1 FROM editions e, json_each(e.item_ids) selected
-        WHERE selected.value = items.id AND e.source = 'curated' AND e.status <> 'dismissed')`,
+      AND id NOT IN (SELECT CAST(selected.value AS INTEGER) FROM editions e, json_each(e.item_ids) selected
+        WHERE e.source = 'curated' AND e.status <> 'dismissed')`,
   ).run(feedId);
   db.prepare("DELETE FROM feeds WHERE id = ? AND is_system_inbox = 0 AND NOT EXISTS (SELECT 1 FROM items WHERE feed_id = ?)").run(feedId, feedId);
 }
@@ -164,8 +164,10 @@ export function removeUnusedFeeds(): number {
        AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.feed_id = feeds.id)
        AND NOT EXISTS (SELECT 1 FROM items i JOIN item_bookmarks b ON b.item_id = i.id WHERE i.feed_id = feeds.id)
        AND NOT EXISTS (SELECT 1 FROM items i JOIN item_notes n ON n.item_id = i.id WHERE i.feed_id = feeds.id)
-       AND NOT EXISTS (SELECT 1 FROM items i, editions e, json_each(e.item_ids) selected
-         WHERE i.feed_id = feeds.id AND selected.value = i.id AND e.source = 'curated' AND e.status <> 'dismissed')`,
+       AND NOT EXISTS (SELECT 1 FROM items i WHERE i.feed_id = feeds.id AND i.id IN (
+         SELECT CAST(selected.value AS INTEGER) FROM editions e, json_each(e.item_ids) selected
+         WHERE e.source = 'curated' AND e.status <> 'dismissed'
+       ))`,
   ).run().changes;
 }
 
@@ -317,8 +319,8 @@ export function upsertItems(
         inserted++;
         refreshLead(Number(result.lastInsertRowid));
       } else {
-        const previous = db.prepare<[number, string], { id: number; title: string | null; content_snippet: string | null; content_html: string | null; full_content_html: string | null; lead_version: number | null }>(
-          "SELECT id, title, content_snippet, content_html, full_content_html, lead_version FROM items WHERE feed_id = ? AND guid = ?").get(feedId, row.guid);
+        const previous = db.prepare<[number, string], { id: number; title: string | null; link: string | null; image_url: string | null; content_snippet: string | null; content_html: string | null; full_content_html: string | null; lead_version: number | null }>(
+          "SELECT id, title, link, image_url, content_snippet, content_html, full_content_html, lead_version FROM items WHERE feed_id = ? AND guid = ?").get(feedId, row.guid);
         const next = row.contentHtml;
         // Some publishers replace complete feed bodies with short teasers on a later poll.
         const retained = previous?.content_html && next && next.length < previous.content_html.length * 0.9 &&
@@ -326,13 +328,26 @@ export function upsertItems(
         // The summary belongs to the body it was sent with: keeping the longer body keeps its summary too, or
         // a feed that alternates between two variants would change the content on every poll.
         const keptPrevious = retained !== null && next !== retained;
-        update.run(row.title ?? null, row.link ?? null, keptPrevious ? null : row.contentSnippet ?? null, retained, row.publishedAt ?? null, row.imageUrl ?? null, row.author ?? null, feedId, row.guid);
-        // Polling rewrites every item; only a change of what the lead is made from needs it derived again.
+        const nextSnippet = keptPrevious ? null : row.contentSnippet ?? null;
+        const nextImage = largerHeroImage(row.imageUrl, retained, row.link ?? previous?.link ?? null) ?? previous?.image_url ?? row.imageUrl ?? null;
+
         if (previous) {
-          const changed = (retained !== null && retained !== previous.content_html) ||
-            (row.title !== undefined && row.title !== previous.title) ||
-            (!keptPrevious && row.contentSnippet !== undefined && row.contentSnippet !== previous.content_snippet);
-          if (previous.lead_version !== LEAD_VERSION || (changed && !previous.full_content_html)) refreshLead(previous.id);
+          const changed = (row.title !== undefined && row.title !== previous.title) ||
+            (row.link !== undefined && row.link !== previous.link) ||
+            (!keptPrevious && row.contentSnippet !== undefined && row.contentSnippet !== previous.content_snippet) ||
+            (retained !== null && retained !== previous.content_html) ||
+            (row.publishedAt !== undefined && row.publishedAt !== null) ||
+            (nextImage !== previous.image_url) ||
+            (row.author !== undefined);
+          if (changed) {
+            update.run(row.title ?? null, row.link ?? null, nextSnippet, retained, row.publishedAt ?? null, nextImage, row.author ?? null, feedId, row.guid);
+            const leadChanged = (retained !== null && retained !== previous.content_html) ||
+              (row.title !== undefined && row.title !== previous.title) ||
+              (!keptPrevious && row.contentSnippet !== undefined && row.contentSnippet !== previous.content_snippet);
+            if (previous.lead_version !== LEAD_VERSION || (leadChanged && !previous.full_content_html)) refreshLead(previous.id);
+          } else if (previous.lead_version !== LEAD_VERSION && !previous.full_content_html) {
+            refreshLead(previous.id);
+          }
         }
       }
     }
@@ -370,7 +385,12 @@ export function listItemsForUser(
   bookmarked_at: string | null;
 })[] {
   // Saved articles stay visible without a subscription (e.g. after unsubscribing).
-  const conditions: string[] = ["(s.id IS NOT NULL OR b.item_id IS NOT NULL)"];
+  const conditions: string[] = [];
+  if (opts.bookmarkedOnly) {
+    conditions.push("b.item_id IS NOT NULL");
+  } else {
+    conditions.push("(s.id IS NOT NULL OR b.item_id IS NOT NULL)");
+  }
   const params: unknown[] = [];
 
   if (opts.feedId) {
@@ -494,6 +514,56 @@ export function findItemForUser(userId: number, itemId: number): ReturnType<type
        EXISTS (SELECT 1 FROM editions e, json_each(e.item_ids) selected WHERE e.user_id = ?
          AND selected.value = i.id AND e.source = 'curated' AND e.status <> 'dismissed'))`,
   ).get(userId, userId, userId, userId, itemId, userId);
+}
+
+export function findItemsForUser(userId: number, itemIds: number[]): ReturnType<typeof listItemsForUser>[number][] {
+  if (!itemIds.length) return [];
+  const unique = [...new Set(itemIds)];
+  return db.prepare<[number, number, number, number, string, number], ReturnType<typeof listItemsForUser>[number]>(
+    `SELECT i.*, COALESCE(NULLIF(TRIM(s.label), ''), NULLIF(TRIM(f.title), ''), f.url) AS feed_title,
+            f.site_url AS feed_site_url, f.url AS feed_url, s.full_text_mode AS feed_full_text_mode, f.icon_url AS feed_icon_url,
+            (r.item_id IS NOT NULL) AS read, (b.item_id IS NOT NULL) AS bookmarked, b.created_at AS bookmarked_at
+     FROM items i
+     JOIN feeds f ON f.id = i.feed_id
+     LEFT JOIN subscriptions s ON s.feed_id = i.feed_id AND s.user_id = ?
+     LEFT JOIN item_reads r ON r.item_id = i.id AND r.user_id = ?
+     LEFT JOIN item_bookmarks b ON b.item_id = i.id AND b.user_id = ?
+     LEFT JOIN item_notes n ON n.item_id = i.id AND n.user_id = ?
+     WHERE i.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
+       AND (s.id IS NOT NULL OR b.item_id IS NOT NULL OR n.item_id IS NOT NULL OR
+         EXISTS (SELECT 1 FROM editions e, json_each(e.item_ids) selected WHERE e.user_id = ?
+           AND selected.value = i.id AND e.source = 'curated' AND e.status <> 'dismissed'))`,
+  ).all(userId, userId, userId, userId, JSON.stringify(unique), userId);
+}
+
+export function findSubscriptionForUser(userId: number, feedId: number): SubscribedFeed | null {
+  return db
+    .prepare<[number, number, number], SubscribedFeed>(
+      `SELECT
+         f.*,
+         fi.hash AS icon_hash,
+         s.id AS subscription_id,
+         NULLIF(TRIM(s.label), '') AS label,
+         s.folder_id AS folder_id,
+         fo.name AS folder_name,
+         s.position AS position,
+         s.full_text_mode AS full_text_mode,
+         s.notify AS notify,
+         s.badge AS badge,
+         (
+           SELECT COUNT(*) FROM items i
+           WHERE i.feed_id = f.id
+             AND NOT EXISTS (
+               SELECT 1 FROM item_reads r WHERE r.item_id = i.id AND r.user_id = ?
+             )
+         ) AS unread_count
+       FROM subscriptions s
+       JOIN feeds f ON f.id = s.feed_id
+       LEFT JOIN feed_icons fi ON fi.feed_id = f.id
+       LEFT JOIN folders fo ON fo.id = s.folder_id
+       WHERE s.user_id = ? AND s.feed_id = ?`,
+    )
+    .get(userId, userId, feedId) ?? null;
 }
 
 export function updateSubscriptionLabel(userId: number, feedId: number, label: string | null): void {
@@ -989,9 +1059,24 @@ export function searchItemsForUser(
 
   const ranked = opts.sort !== "date" && fts;
   // Materialize once: a virtual-table MATCH in the LEFT JOIN repeats the full ranking scan for each article.
+  // Page IDs before loading HTML to avoid copying large content blobs into temporary B-trees during sorting.
   const querySql = `
-    ${ranked ? "WITH ranked_matches AS MATERIALIZED (SELECT rowid, rank FROM items_fts WHERE items_fts MATCH ?)" : ""}
-    SELECT DISTINCT i.*,
+    ${ranked ? "WITH ranked_matches AS MATERIALIZED (SELECT rowid, rank FROM items_fts WHERE items_fts MATCH ?)," : "WITH"}
+    page AS (
+      SELECT i.id
+      FROM items i
+      JOIN feeds f ON f.id = i.feed_id
+      LEFT JOIN subscriptions s ON s.feed_id = i.feed_id AND s.user_id = ?
+      LEFT JOIN item_reads r ON r.item_id = i.id AND r.user_id = ?
+      LEFT JOIN item_bookmarks b ON b.item_id = i.id AND b.user_id = ?
+      LEFT JOIN item_notes n ON n.item_id = i.id AND n.user_id = ?
+      ${ranked ? "LEFT JOIN ranked_matches fts ON fts.rowid = i.id" : ""}
+      WHERE ${conditions.join(" AND ")}
+      GROUP BY i.id
+      ORDER BY ${orderBy}
+      LIMIT ? OFFSET ?
+    )
+    SELECT i.*,
            COALESCE(NULLIF(TRIM(s.label), ''), NULLIF(TRIM(f.title), ''), f.url) AS feed_title,
            f.site_url AS feed_site_url,
            f.url AS feed_url,
@@ -1000,16 +1085,15 @@ export function searchItemsForUser(
            (r.item_id IS NOT NULL) AS read,
            (b.item_id IS NOT NULL) AS bookmarked,
            b.created_at AS bookmarked_at
-    FROM items i
+    FROM page
+    JOIN items i ON i.id = page.id
     JOIN feeds f ON f.id = i.feed_id
     LEFT JOIN subscriptions s ON s.feed_id = i.feed_id AND s.user_id = ?
     LEFT JOIN item_reads r ON r.item_id = i.id AND r.user_id = ?
     LEFT JOIN item_bookmarks b ON b.item_id = i.id AND b.user_id = ?
     LEFT JOIN item_notes n ON n.item_id = i.id AND n.user_id = ?
     ${ranked ? "LEFT JOIN ranked_matches fts ON fts.rowid = i.id" : ""}
-    WHERE ${conditions.join(" AND ")}
     ORDER BY ${orderBy}
-    LIMIT ? OFFSET ?
   `;
 
   const queryParams = [
@@ -1021,6 +1105,10 @@ export function searchItemsForUser(
     ...params,
     limit,
     offset,
+    userId,
+    userId,
+    userId,
+    userId,
   ];
 
   const items = db.prepare(querySql).all(...queryParams) as (Item & {

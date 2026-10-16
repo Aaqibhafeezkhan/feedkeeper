@@ -5,12 +5,12 @@ import { hasUserCapability } from "../auth/capabilities.js";
 import { configureFullTextPool, deferFullTextHost } from "./fullTextQueue.js";
 import { extractArticle } from "./extractor.js";
 import { assertPublicHttpUrl, normalizeUrlCandidate } from "./ssrfGuard.js";
-import { articleImageUrls, scheduleArchive } from "./archive.js";
+import { articleImageUrls, pruneArchive, scheduleArchive } from "./archive.js";
 import {
   findFeedById,
   findFeedByUrl,
   isUserSubscribed,
-  listSubscriptionsForUser,
+  findSubscriptionForUser,
   subscribe,
   bookmarkItem,
   findItemById,
@@ -56,7 +56,7 @@ export function ensureUserInbox(userId: number): SubscribedFeed {
     subscribe(userId, feed.id, "Inbox");
   }
 
-  const sub = listSubscriptionsForUser(userId).find((s) => s.id === feed!.id);
+  const sub = findSubscriptionForUser(userId, feed!.id);
   if (!sub) {
     throw new Error("Failed to ensure user inbox subscription");
   }
@@ -84,7 +84,7 @@ export async function saveToInbox(
       try {
         configureFullTextPool();
         const extracted = await extractArticle(targetUrl, undefined, 5, () => hasUserCapability(userId, "fulltext"));
-        if (extracted.status === "throttled") deferFullTextHost(extracted.host, extracted.retryAt);
+        if (extracted.status === "throttled" && !extracted.deferred) deferFullTextHost(extracted.host, extracted.retryAt);
         if (extracted.status === "ok" || extracted.status === "partial") {
           extractionStatus = extracted.status === "ok" ? "ready" : "partial";
           extractedPartial = extracted.status === "partial";
@@ -175,5 +175,6 @@ export function deleteInboxItem(userId: number, itemId: number): boolean {
     db.prepare("DELETE FROM items WHERE id = ?").run(itemId);
   })();
 
+  pruneArchive();
   return true;
 }

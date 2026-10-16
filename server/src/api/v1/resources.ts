@@ -20,6 +20,8 @@ import {
   findFeedById,
   findFolderById,
   findItemForUser,
+  findItemsForUser,
+  findSubscriptionForUser,
   findItemNote,
   noteConflictState,
   isUserSubscribed,
@@ -57,7 +59,7 @@ const urlField = z.preprocess((val) => (typeof val === "string" ? normalizeUrlCa
 const invalid = (res: import("express").Response, details?: unknown) => void res.status(400).json({ error: "invalid_input", ...(details ? { details } : {}) });
 
 function subscriptionOf(userId: number, id: number) {
-  const subscription = listSubscriptionsForUser(userId).find((entry) => entry.id === id);
+  const subscription = findSubscriptionForUser(userId, id);
   return subscription ? serializeSubscriptionDetail(subscription) : null;
 }
 
@@ -340,9 +342,9 @@ const itemsQuery = z.object({
 type Row = ReturnType<typeof listItemsForUser>[number];
 
 /** Rows ready for a native client: images served by this server where it keeps copies. */
-function prepare(rows: Row[], req: Request, images: "original" | "proxy"): Row[] {
-  const archived = withArchivedImages(rows, origin(req), API_BASE);
-  return images === "proxy" ? withProxiedImages(archived, origin(req), API_BASE) : archived;
+function prepare(rows: Row[], req: Request, images: "original" | "proxy", withContent = true): Row[] {
+  const archived = withArchivedImages(rows, origin(req), API_BASE, withContent);
+  return images === "proxy" ? withProxiedImages(archived, origin(req), API_BASE, withContent) : archived;
 }
 
 const searchQuery = z.object({
@@ -382,7 +384,7 @@ resourcesRouter.get("/search", requireCapability("search.fts"), (req, res) => {
   res.json({
     query: query.q,
     total,
-    items: prepare(rows, req, query.images).map((row) => serializeItem(row, progress, withContent, hasNotes.has(row.id))),
+    items: prepare(rows, req, query.images, withContent).map((row) => serializeItem(row, progress, withContent, hasNotes.has(row.id))),
   });
 });
 
@@ -415,7 +417,7 @@ resourcesRouter.get("/items", (req, res) => {
   const progress = readingPositions(req.user!.id, page.map((row) => row.id));
   const hasNotes = itemsWithNotes(req.user!.id, page.map((row) => row.id));
   res.json({
-    items: prepare(page, req, query.images).map((row) => serializeItem(row, progress, withContent, hasNotes.has(row.id))),
+    items: prepare(page, req, query.images, withContent).map((row) => serializeItem(row, progress, withContent, hasNotes.has(row.id))),
     newestCursor: page[0] ? encodeCursor(page[0]) : null,
     nextCursor: hasMore && page.length ? encodeCursor(page[page.length - 1]) : null,
   });
@@ -426,10 +428,11 @@ resourcesRouter.get("/items/bundle", (req, res) => {
   const parsed = z.object({ ids: z.string().regex(/^\d+(,\d+){0,49}$/), images: z.enum(["original", "proxy"]).default("proxy") }).safeParse(req.query);
   if (!parsed.success) return invalid(res, "ids: up to 50 comma separated article ids");
   const ids = [...new Set(parsed.data.ids.split(",").map(Number))];
-  const rows = ids.map((id) => findItemForUser(req.user!.id, id)).filter((row): row is NonNullable<typeof row> => Boolean(row));
+  const byId = new Map(findItemsForUser(req.user!.id, ids).map((row) => [row.id, row]));
+  const rows = ids.map((id) => byId.get(id)).filter((row): row is NonNullable<typeof row> => Boolean(row));
   const progress = readingPositions(req.user!.id, rows.map((row) => row.id));
   const hasNotes = itemsWithNotes(req.user!.id, rows.map((row) => row.id));
-  res.json({ items: prepare(rows, req, parsed.data.images).map((row) => serializeItem(row, progress, true, hasNotes.has(row.id))) });
+  res.json({ items: prepare(rows, req, parsed.data.images, true).map((row) => serializeItem(row, progress, true, hasNotes.has(row.id))) });
 });
 
 // Explicit extraction side effect; read-only devices continue to consume the shared cache.
@@ -556,12 +559,13 @@ resourcesRouter.get("/notes/export", (req, res) => {
 // ---- Curated Edition ("Deine Zeitung") ------------------------------------
 
 function editionResponse(req: Request, edition: ServerEdition) {
+  const byId = new Map(findItemsForUser(req.user!.id, edition.itemIds).map((row) => [row.id, row]));
   const rows = edition.itemIds
-    .map((id) => findItemForUser(req.user!.id, id))
+    .map((id) => byId.get(id))
     .filter((row): row is NonNullable<typeof row> => Boolean(row));
   const progress = readingPositions(req.user!.id, rows.map((r) => r.id));
   const hasNotes = itemsWithNotes(req.user!.id, rows.map((r) => r.id));
-  const prepared = prepare(rows, req, req.query.images === "proxy" ? "proxy" : "original");
+  const prepared = prepare(rows, req, req.query.images === "proxy" ? "proxy" : "original", false);
   return {
     ...edition,
     items: prepared.map((row) => serializeItem(row, progress, false, hasNotes.has(row.id))),
