@@ -845,6 +845,7 @@ components:
         subscriptionId: { type: integer }
         subscriptionTitle: { type: [string, "null"] }
         title: { type: [string, "null"] }
+        author: { type: [string, "null"], description: "The author or authors the feed names, joined by commas (`Anna Muster, Ben Beispiel`). Present when item.author is advertised. Null when the feed names none, or only an address, a generic name such as admin or the publication itself." }
         url: { type: [string, "null"] }
         publishedAt: { type: [string, "null"] }
         addedAt: { type: string }

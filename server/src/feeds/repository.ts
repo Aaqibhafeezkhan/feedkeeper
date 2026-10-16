@@ -43,6 +43,7 @@ export interface Item {
   extraction_attempted_at: string | null;
   extraction_retry_at: string | null;
   image_url: string | null;
+  author: string | null;
   published_at: string | null;
   created_at: string;
 }
@@ -278,11 +279,12 @@ export function upsertItems(
     contentHtml?: string | null;
     publishedAt?: string;
     imageUrl?: string | null;
+    author?: string | null;
   }>,
 ): number {
   const insert = db.prepare(
-    `INSERT INTO items (feed_id, guid, title, link, content_snippet, content_html, published_at, image_url)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO items (feed_id, guid, title, link, content_snippet, content_html, published_at, image_url, author)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (feed_id, guid) DO NOTHING`,
   );
   const update = db.prepare(
@@ -292,7 +294,8 @@ export function upsertItems(
        content_snippet = COALESCE(?, content_snippet),
        content_html = COALESCE(?, content_html),
        published_at = COALESCE(?, published_at),
-       image_url = COALESCE(?, image_url)
+       image_url = COALESCE(?, image_url),
+       author = COALESCE(?, author)
      WHERE feed_id = ? AND guid = ?`,
   );
   const insertMany = db.transaction((rows: typeof items) => {
@@ -307,6 +310,7 @@ export function upsertItems(
         row.contentHtml ?? null,
         row.publishedAt ?? null,
         largerHeroImage(row.imageUrl, row.contentHtml, row.link ?? null) ?? row.imageUrl ?? null,
+        row.author ?? null,
       ] as const;
       const result = insert.run(...values);
       if (result.changes > 0) {
@@ -322,7 +326,7 @@ export function upsertItems(
         // The summary belongs to the body it was sent with: keeping the longer body keeps its summary too, or
         // a feed that alternates between two variants would change the content on every poll.
         const keptPrevious = retained !== null && next !== retained;
-        update.run(row.title ?? null, row.link ?? null, keptPrevious ? null : row.contentSnippet ?? null, retained, row.publishedAt ?? null, row.imageUrl ?? null, feedId, row.guid);
+        update.run(row.title ?? null, row.link ?? null, keptPrevious ? null : row.contentSnippet ?? null, retained, row.publishedAt ?? null, row.imageUrl ?? null, row.author ?? null, feedId, row.guid);
         // Polling rewrites every item; only a change of what the lead is made from needs it derived again.
         if (previous) {
           const changed = (retained !== null && retained !== previous.content_html) ||

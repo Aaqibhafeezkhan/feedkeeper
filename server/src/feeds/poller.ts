@@ -11,6 +11,7 @@ import { db } from "../db/index.js";
 import { configurePollHostCooldowns, PollQueue, type PollResult } from "./pollQueue.js";
 import { feedRequests, PollDeferredError, sourceHost } from "./requestGate.js";
 import { normalizePublishedAt } from "./dates.js";
+import { authorLine } from "./author.js";
 
 configurePollHostCooldowns();
 
@@ -18,6 +19,7 @@ type CustomItem = Parser.Item & {
   mediaContent?: unknown;
   mediaThumbnail?: unknown;
   contentEncoded?: string;
+  author?: string;
   "media:content"?: unknown;
   "media:thumbnail"?: unknown;
   "content:encoded"?: string;
@@ -121,6 +123,7 @@ async function pollAttempt(feed: Feed, signal: AbortSignal): Promise<PollResult>
     contentSnippet: decodeEntities(item.contentSnippet ?? item.content) ?? undefined,
     contentHtml: item.contentEncoded ?? item["content:encoded"] ?? item.content ?? null,
     publishedAt: normalizePublishedAt(item.isoDate ?? item.pubDate) ?? undefined, imageUrl: extractImageUrl(item),
+    author: authorLine([item.creator, item.author], { title: current.title, url: current.site_url ?? current.url }),
   }));
   // No await in this transaction. Items, health/validators and job completion become visible together.
   const newItems = db.transaction(() => {

@@ -42,4 +42,6 @@ The reader HTML also carries no typography: fonts, sizes, colours, alignment, cl
 
 **Lead.** Every item carries a `lead` (advertised as `item.lead`): the first 600 characters or so of the derived text, cut at a sentence. It is stored when content is written and derived again when the rules change, so clients can show a teaser without working it out from the HTML.
 
+**Author.** An item carries the `author` its feed names (`dc:creator`, RSS `author`, Atom `author`; advertised as `item.author`), cleaned and joined by commas when there are several. Addresses without a name, generic names (`admin`, `Redaktion`) and the publication's own name are left out. A byline in the article text that only repeats the author is left out of the reader's HTML, because clients show the name beside the date. Items get their author on the next poll of their feed.
+
 The rules are structural or generic idioms in `server/src/feeds/contentNoise.ts`. A phrase is added only when more than one publisher uses it, and every rule has a fixture. Cleaning never leaves an article empty: if almost nothing would remain, the text is returned as it was.

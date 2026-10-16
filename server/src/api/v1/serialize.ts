@@ -34,6 +34,7 @@ export function serializeItem(row: ItemRow, progress: Map<number, number>, withC
     subscriptionId: row.feed_id,
     subscriptionTitle: row.feed_title,
     title: row.title,
+    author: row.author ?? null,
     url: row.link,
     publishedAt: row.published_at,
     addedAt: row.created_at,
@@ -42,7 +43,7 @@ export function serializeItem(row: ItemRow, progress: Map<number, number>, withC
     imageUrl: row.image_url,
     hasFullText: Boolean(row.full_content_html),
     content: contentMetadata(row),
-    ...(withContent ? { contentHtml: readerHtml(row.content_html, row.title), fullTextHtml: readerHtml(row.full_content_html, row.title) } : {}),
+    ...(withContent ? { contentHtml: readerHtml(row.content_html, row.title, row.author), fullTextHtml: readerHtml(row.full_content_html, row.title, row.author) } : {}),
     state: {
       read: Boolean(row.read),
       saved: Boolean(row.bookmarked),

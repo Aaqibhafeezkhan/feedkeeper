@@ -88,7 +88,7 @@ function isStructuredData(text: string): boolean {
   try { return typeof JSON.parse(text) === "object"; } catch { return false; }
 }
 
-function removeReaderNoise(root: DocumentFragment, title: string | null | undefined, stats: NoiseStats): boolean {
+function removeReaderNoise(root: DocumentFragment, title: string | null | undefined, stats: NoiseStats, author?: string | null): boolean {
   let changed = false;
   const drop = (element: Element, rule: string) => {
     if (!element.parentNode) return;
@@ -136,6 +136,7 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
 
   const headline = normalized(title ?? "");
   const seen = new Set<string>();
+  const authorKeys = (author ?? "").split(",").map(name => normalized(name)).filter(Boolean);
   let leading = 0;
   let reachedText = false;
   for (const block of leafBlocks(root)) {
@@ -156,6 +157,8 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
     if (text.length <= 60 && charsBefore(root, block) <= 800) {
       if (DATE_ONLY.test(text)) { drop(block, "dateline"); continue; }
       if (READING_TIME_ONLY.test(text)) { drop(block, "reading-time"); continue; }
+      // When the feed names the author, the reader shows the name in its head: a byline that only says that goes.
+      if (BYLINE.test(text) && authorKeys.length > 0 && authorKeys.every(name => normalized(text).includes(name))) { drop(block, "byline"); continue; }
       if (BYLINE.test(text) && stripBylineDate(block)) { stats["byline-date"] = (stats["byline-date"] ?? 0) + 1; changed = true; }
     }
     if (headline && normalized(text) === headline && (position < 4 || (heading && position < 14))) { drop(block, "title-repeat"); continue; }
@@ -283,13 +286,13 @@ function serialize(root: DocumentFragment): string {
 }
 
 /** The article HTML as a reader should show it. Unchanged input is returned as is. */
-export function cleanReaderHtml(html: string, title?: string | null, stats: NoiseStats = {}): string {
+export function cleanReaderHtml(html: string, title?: string | null, stats: NoiseStats = {}, author?: string | null): string {
   if (!html) return html;
   const root = JSDOM.fragment(html);
   const images = resolveCustomImages(root, stats);
   const variants = collapseImageVariants(root, stats);
   const videos = resolveVideoPlayers(root, stats);
-  const noise = removeReaderNoise(root, title, stats);
+  const noise = removeReaderNoise(root, title, stats, author);
   const typography = removeTypography(root, stats);
   videos.links.forEach(link => { if (root.contains(link)) link.setAttribute("data-media", "video"); });
   return images || variants || videos.changed || noise || typography ? serialize(root) : html;
