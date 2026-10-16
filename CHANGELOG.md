@@ -4,6 +4,12 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+- `ipaddr.js` 2.5.0 in the address check for feed hosts. It reports more special-purpose ranges as non-public and parses short forms such as `127.1` as loopback; nothing that was blocked before is allowed now (#20).
+
+### Fixed
+- A feed's thumbnail as the hero picture: when the feed names a small size of a picture (for example `…__wide__148` or `…-720x405.jpg`) and the article shows the same picture in a clearly larger size, that size becomes the item's picture, up to 2000 px wide. It applies to new items and as soon as an article's full text is stored.
+
 ## [0.26.5] - 2026-10-15
 
 ### Added

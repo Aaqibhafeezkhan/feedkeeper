@@ -1,6 +1,7 @@
 import { db } from "../db/index.js";
 import { articleText } from "./articleContent.js";
 import { LEAD_VERSION } from "./contentNoise.js";
+import { largerHeroImage } from "./heroImage.js";
 import { refreshLead } from "./lead.js";
 import { decodeEntities } from "./text.js";
 
@@ -305,7 +306,7 @@ export function upsertItems(
         row.contentSnippet ?? null,
         row.contentHtml ?? null,
         row.publishedAt ?? null,
-        row.imageUrl ?? null,
+        largerHeroImage(row.imageUrl, row.contentHtml, row.link ?? null) ?? row.imageUrl ?? null,
       ] as const;
       const result = insert.run(...values);
       if (result.changes > 0) {
@@ -660,6 +661,14 @@ export function findItemById(id: number): Item | undefined {
 export function updateItemFullContent(id: number, fullContentHtml: string): void {
   db.prepare("UPDATE items SET full_content_html = ? WHERE id = ?").run(fullContentHtml, id);
   refreshLead(id);
+  upgradeHeroImage(id, fullContentHtml);
+}
+
+/** The feed's picture is often a thumbnail of the one the article shows: use the larger size once the text is known. */
+function upgradeHeroImage(id: number, html: string): void {
+  const item = db.prepare<[number], { image_url: string | null; link: string | null }>("SELECT image_url, link FROM items WHERE id = ?").get(id);
+  const larger = item ? largerHeroImage(item.image_url, html, item.link) : null;
+  if (larger) db.prepare("UPDATE items SET image_url = ? WHERE id = ?").run(larger, id);
 }
 
 /** Apply a per-item change to many items atomically; returns how many rows changed. */
