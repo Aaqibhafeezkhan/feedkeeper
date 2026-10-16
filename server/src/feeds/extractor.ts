@@ -159,7 +159,7 @@ async function fetchArticleHtml(rawUrl: string, signal: AbortSignal, dispatcher:
       chunks.push(value);
     }
 
-    const html = new TextDecoder().decode(Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))));
+    const html = new TextDecoder().decode(Buffer.concat(chunks, total));
     return { html, url: safeUrl.toString() };
   }
 
@@ -188,15 +188,13 @@ export async function extractArticle(rawUrl: string, fetchImpl: ArticleFetch = d
 
 async function extractArticleContent(rawUrl: string, fetchImpl: ArticleFetch, signal: AbortSignal): Promise<ExtractionResult> {
   signal.throwIfAborted();
-  const safeUrl = await assertPublicHttpUrl(rawUrl);
-  signal.throwIfAborted();
   const dispatcher = createPublicDispatcher();
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   try {
-    const fetched = await fetchArticleHtml(safeUrl.toString(), AbortSignal.any([signal, controller.signal]), dispatcher, fetchImpl, signal);
+    const fetched = await fetchArticleHtml(rawUrl, AbortSignal.any([signal, controller.signal]), dispatcher, fetchImpl, signal);
     if (!fetched) return { status: "failed" };
 
     const cleanedHtml = stripHeavyTags(fetched.html);

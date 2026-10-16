@@ -142,10 +142,10 @@ async function pollAttempt(feed: Feed, signal: AbortSignal): Promise<PollResult>
   try {
     signal.throwIfAborted();
     if (iconCheckDue(feed.icon_checked_at)) {
+      updateFeedIcon(feed.id, feed.icon_url);
       const siteUrl = parsed?.link || feed.site_url;
       const urls = siteUrl ? await discoverIconUrls(siteUrl, signal) : [];
       signal.throwIfAborted();
-      updateFeedIcon(feed.id, feed.icon_url);
       await refreshFeedIcon(feed.id, siteUrl, urls, signal);
     }
   } catch { /* Keep the successful poll; icon failures are best effort. */ }

@@ -202,6 +202,7 @@ function pump() {
   if (stopping) return;
   if (timer) clearTimeout(timer);
   const pool = configureFullTextPool();
+  if (active.size >= pool.limits.concurrency) return;
   if (seedTimer && (db.prepare("SELECT COUNT(*) n FROM full_text_jobs").get() as { n: number }).n < pool.limits.concurrency * 2) scheduleFullTexts();
   const jobs = db.prepare<[string, number], Job>(`SELECT j.*, i.link FROM full_text_jobs j JOIN items i ON i.id=j.item_id
     WHERE julianday(j.available_at) <= julianday(?) ORDER BY (j.priority + CAST((julianday('now')-julianday(j.created_at))*86400000 / ? AS INTEGER)) DESC,
@@ -222,8 +223,11 @@ function pump() {
     const work = execute(job, host).finally(() => { active.delete(job.item_id); wake(); });
     active.set(job.item_id, work);
   }
-  if ((db.prepare("SELECT COUNT(*) n FROM full_text_jobs").get() as { n: number }).n) {
-    timer = setTimeout(wake, 250); timer.unref();
+  const nextJob = db.prepare<[], { next_at: string | null }>("SELECT MIN(available_at) AS next_at FROM full_text_jobs").get();
+  if (nextJob?.next_at) {
+    const delay = Math.max(250, Math.min(30_000, Date.parse(nextJob.next_at) - Date.now()));
+    timer = setTimeout(wake, delay);
+    timer.unref();
   }
 }
 async function execute(job: Job, host: string) {
@@ -231,7 +235,7 @@ async function execute(job: Job, host: string) {
     const result = await executeFullText(job.user_id, job.item_id, !!job.force, job.priority);
     if (stopping) return; // The SQLite row is the restart record, including its original age.
     if (!result.ok) { attemptErrors++; errorCounts[result.error] = (errorCounts[result.error] ?? 0) + 1; }
-    if (!result.ok && result.error === "source_busy") {
+    if (!result.ok && result.error === "source_busy" && !result.deferred) {
       throttled++;
       deferFullTextHost(result.host ?? host, result.retryAt);
     }

@@ -42,6 +42,15 @@ export class ImageCache {
   async get(scope: number | string, url: string, load: Loader): Promise<CachedImage | "unsupported"> {
     if (this.stopping) throw new ImageCacheBusyError();
     const key = createHash("sha256").update(`${scope}\0${url}`).digest("hex");
+    const missing = this.negative.get(key);
+    if (missing) {
+      if (missing.expires > this.now()) {
+        this.counters.negativeHits++;
+        if (missing.result === "unsupported") return "unsupported";
+        throw new FeedHttpError(missing.result, undefined, "");
+      }
+      this.negative.delete(key);
+    }
     const shared = this.running.get(key);
     if (shared) { this.counters.shared++; return shared.promise; }
     if (this.active >= this.settings.concurrency && this.waiting.length >= this.settings.maxWaiters) {

@@ -139,6 +139,7 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
   const authorKeys = (author ?? "").split(",").map(name => normalized(name)).filter(Boolean);
   let leading = 0;
   let reachedText = false;
+  let pastStart = false;
   for (const block of leafBlocks(root)) {
     const text = flat(block.textContent);
     if (!text) continue;
@@ -154,18 +155,23 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
     }
 
     // Near the start, a line that is only a date or a reading time repeats what the reader shows in its own head.
-    if (text.length <= 60 && charsBefore(root, block) <= 800) {
-      if (DATE_ONLY.test(text)) { drop(block, "dateline"); continue; }
-      if (READING_TIME_ONLY.test(text)) { drop(block, "reading-time"); continue; }
-      // When the feed names the author, the reader shows the name in its head: a byline that only says that goes.
-      if (BYLINE.test(text) && authorKeys.length > 0 && authorKeys.every(name => normalized(text).includes(name))) { drop(block, "byline"); continue; }
-      if (BYLINE.test(text) && stripBylineDate(block)) { stats["byline-date"] = (stats["byline-date"] ?? 0) + 1; changed = true; }
+    if (!pastStart && text.length <= 60) {
+      const before = charsBefore(root, block);
+      if (before > 800) {
+        pastStart = true;
+      } else {
+        if (DATE_ONLY.test(text)) { drop(block, "dateline"); continue; }
+        if (READING_TIME_ONLY.test(text)) { drop(block, "reading-time"); continue; }
+        // When the feed names the author, the reader shows the name in its head: a byline that only says that goes.
+        if (BYLINE.test(text) && authorKeys.length > 0 && authorKeys.every(name => normalized(text).includes(name))) { drop(block, "byline"); continue; }
+        if (BYLINE.test(text) && stripBylineDate(block)) { stats["byline-date"] = (stats["byline-date"] ?? 0) + 1; changed = true; }
+      }
     }
     if (headline && normalized(text) === headline && (position < 4 || (heading && position < 14))) { drop(block, "title-repeat"); continue; }
     if (position < 14 && /^(Audiobeitrag|Videobeitrag)\s*>/.test(text) && headline && normalized(text).endsWith(headline)) { drop(block, "title-repeat"); continue; }
     if (/^[>›»|/·•–—-]+$/.test(text)) { drop(block, "separator"); continue; }
     if (/^(Audiobeitrag|Videobeitrag|Autoplay)$/i.test(text) || (position < 8 && /^Bild$/.test(text))) { drop(block, "player"); continue; }
-    if (text.length <= 70 && block.querySelector("time") && charsBefore(root, block) <= 600) {
+    if (!pastStart && text.length <= 70 && block.querySelector("time") && charsBefore(root, block) <= 600) {
       const rest = flat(text.replace(flat(block.querySelector("time")?.textContent), ""));
       if (/^(stand|zuletzt aktualisiert|aktualisiert|ver(ö|oe)ffentlicht|updated|published|posted)?\s*[:·|•-]*\s*$/i.test(rest)) { drop(block, "dateline"); continue; }
     }

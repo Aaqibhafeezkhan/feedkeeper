@@ -217,14 +217,13 @@ export function listChanges(userId: number, since: number, limit = 200): { chang
   const notes = new Map<number, BatchNoteRow>();
   if (noteUpsertIds.length) {
     const noteRows = db
-      .prepare<[number, number, string], BatchNoteRow>(
+      .prepare<[number, string], BatchNoteRow>(
         `SELECT n.item_id, n.content, COALESCE(r.revision, 1) AS revision, n.created_at, n.updated_at
          FROM item_notes n
          LEFT JOIN item_note_revisions r ON r.user_id = n.user_id AND r.item_id = n.item_id
-         WHERE n.user_id = ? AND n.item_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
-           AND ? IS NOT NULL`,
+         WHERE n.user_id = ? AND n.item_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))`,
       )
-      .all(userId, JSON.stringify(noteUpsertIds), userId);
+      .all(userId, JSON.stringify(noteUpsertIds));
     for (const note of noteRows) notes.set(note.item_id, note);
   }
 
