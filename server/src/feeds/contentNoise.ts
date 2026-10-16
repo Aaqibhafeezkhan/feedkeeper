@@ -68,7 +68,7 @@ const TIME_OF_DAY = "(?:[,\\s•·|-]+\\d{1,2}[:.]\\d{2}(?::\\d{2})?(?:\\s?(?:Uh
 const DATE_PART = `(?:\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{2,4}|\\d{1,2}\\.?\\s(?:${MONTHS})\\.?\\s\\d{4}|(?:${MONTHS})\\.?\\s\\d{1,2},?\\s\\d{4})`;
 const DATE_ONLY = new RegExp(`^${DATE_PART}${TIME_OF_DAY}$`, "iu");
 /** The date at the end of a byline (`von Michael Bartl I 15.10.2026 - 11:41`): the author stays, the date is in the reader's head. */
-const BYLINE = /^(von|by|text|autor(in)?|author|written by)\b/i;
+const BYLINE = /^(von|by|text|autor(in)?|author|written by|words by|story by|report(ed)? by|posted by|photo(s)? by)\b/i;
 const BYLINE_DATE_TAIL = new RegExp(`(?:^|\\s)[|•·–—I-]\\s*${DATE_PART}${TIME_OF_DAY}\\s*$`, "iu");
 
 function stripBylineDate(block: Element): boolean {
@@ -510,8 +510,8 @@ const COMMENT_PATTERNS: RegExp[] = [
   /\b(let us know|tell us) .{0,40}in the comments\b/i,
   /\bNur angemeldete Benutzer können kommentieren\b/i,
 ];
-const AD_LABEL = /^(Anzeige|Werbung|Advertisement|Advertorial|Sponsored|Gesponsert|Promoted)\s*:?$/i;
-const COMMENT_RULES_HEADING = /^(Regeln für Kommentare|Kommentarregeln|Kommentar-Richtlinien|Comment(ing)? (rules|guidelines|policy)|Community[- ]Richtlinien)\s*:?$/i;
+const AD_LABEL = /^(Anzeige|Werbung|Advertisement|Advertising|Advertorial|Ads?|Sponsored( content| post)?|Paid (content|post)|Gesponsert|Promoted)\s*:?$/i;
+const COMMENT_RULES_HEADING = /^(Regeln für Kommentare|Kommentarregeln|Kommentar-Richtlinien|Community[- ]Richtlinien|(Comment(ing)?|Community|Discussion|House) (rules|guidelines|policy|policies)|Rules for comments|Commenting rules)\s*:?$/i;
 const TAG_LABEL = /^(Schlagw(ö|oe)rter|Schlagworte|Tags?|Keywords|Themen|Topics)\s*:?$/i;
 const VIDEO_CARD = /^\d{1,2}:\d{2}(:\d{2})?(?=\D)\s*\S/;
 const SECTION_LABEL = /^(Auch interessant|Das könnte (dich|Sie|euch) (auch )?interessieren|Mehr zum Thema|Lesen Sie auch|Lies auch|Lest auch|Aktuelle News|Weitere (Artikel|Meldungen|News)|Popular Stories|Related (Stories|Articles|Posts|Reading)|More (Stories|from)|Top Stories|Meistgelesen|Topaktuell|Regeln für Kommentare|Kommentare|Comments?)\b\s*:?/i;

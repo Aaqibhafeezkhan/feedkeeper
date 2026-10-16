@@ -356,3 +356,14 @@ test("an ad label with no ad behind it goes, an ad with content keeps its label"
   assert.match(sponsored, /Anzeige/);
   assert.match(cleanReaderHtml(BODY + "<p>Anzeige</p><p>Jetzt das Angebot entdecken (Affiliate-Link).</p>", "Title"), /Anzeige/, "text that follows is the ad");
 });
+
+test("the English forms of byline, comment rules and ad label are handled like the German ones", () => {
+  const body = `<p>${"A long paragraph with plenty of text. ".repeat(8)}</p>`;
+  assert.doesNotMatch(cleanReaderHtml("<p>By Anna Muster | Oct 15, 2026</p>" + body, "T"), /2026/);
+  assert.match(cleanReaderHtml("<p>By Anna Muster | Oct 15, 2026</p>" + body, "T"), /By Anna Muster/);
+  assert.doesNotMatch(cleanReaderHtml(body + "<h3>Comment Policy</h3><p>Be kind.</p>", "T"), /Policy|Be kind/);
+  assert.doesNotMatch(cleanReaderHtml(body + "<h3>Community guidelines:</h3><p>Be kind.</p>", "T"), /guidelines/);
+  for (const label of ["Advertisement", "Sponsored", "Sponsored content", "Ad", "Paid content"]) {
+    assert.doesNotMatch(cleanReaderHtml(body + `<p>${label}</p><h3>Related</h3><ul><li><a href="https://example.test/a">Another story</a></li></ul>`, "T"), new RegExp(`<p>${label}</p>`), label);
+  }
+});
