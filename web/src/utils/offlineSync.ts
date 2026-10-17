@@ -1,3 +1,4 @@
+import { offlineAccountId } from "./offlineAccount.ts";
 import { api, isTransient, sendItemAction, type Item } from "../api/client.ts";
 import { flushQueue } from "./offlineQueue.ts";
 import { API_CACHE, SYNCED_KEY, deleteSnapshot, offlineEnabled, writeSnapshot } from "./offlineStore.ts";
@@ -21,7 +22,7 @@ export function cancelSync(): void {
 
 function lastSync(): number {
   try {
-    return Number(localStorage.getItem(SYNCED_KEY)) || 0;
+    return Number(localStorage.getItem(`${SYNCED_KEY}-${offlineAccountId()}`)) || 0;
   } catch {
     return 0;
   }
@@ -87,13 +88,14 @@ export async function syncNow(): Promise<void> {
  * Returns the number of articles stored, or null when nothing was done (disabled, offline or too recent).
  */
 export function syncOfflineCopy(options: { force?: boolean } = {}): Promise<number | null> {
-  if (!("caches" in window) || !offlineEnabled() || !navigator.onLine) return Promise.resolve(null);
+  const userId = offlineAccountId();
+  if (userId === null || !("caches" in window) || !offlineEnabled() || !navigator.onLine) return Promise.resolve(null);
   // A change that arrives while a sync runs gets its own run afterwards.
   if (running) return options.force ? running.then(() => syncOfflineCopy(options)) : running;
   if (!options.force && Date.now() - lastSync() < MIN_INTERVAL_MS) return Promise.resolve(null);
 
   const started = generation;
-  const cancelled = () => started !== generation;
+  const cancelled = () => started !== generation || offlineAccountId() !== userId;
   running = (async () => {
     try {
       const found = new Set<string>();
@@ -108,14 +110,17 @@ export function syncOfflineCopy(options: { force?: boolean } = {}): Promise<numb
 
       const saved = savedRaw.slice(0, MAX_SAVED).map((item) => localizeItem(item, found));
       const recent = recentRaw.map((item) => localizeItem(item, found));
+      if (cancelled()) return null;
       const cache = await caches.open(API_CACHE);
+      if (cancelled()) return null;
       await downloadImages(cache, [...found], cancelled);
       if (cancelled()) return null;
       await dropCachedImages(cache, found);
 
       if (cancelled()) return null;
-      await writeSnapshot({ savedAt: new Date().toISOString(), saved, recent, feedFolders: Object.fromEntries(feeds.map((feed) => [feed.id, feed.folder_id])) });
-      localStorage.setItem(SYNCED_KEY, String(Date.now()));
+      await writeSnapshot({ userId, savedAt: new Date().toISOString(), saved, recent, feedFolders: Object.fromEntries(feeds.map((feed) => [feed.id, feed.folder_id])) });
+      if (cancelled()) return null;
+      localStorage.setItem(`${SYNCED_KEY}-${userId}`, String(Date.now()));
       return new Set([...saved, ...recent].map((item) => item.id)).size;
     } catch {
       return null;

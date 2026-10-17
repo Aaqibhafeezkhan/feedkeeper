@@ -71,3 +71,92 @@ test("ordinary cached images expire, revalidate and update while archive images 
   const before = worker.calls.length;
   assert.equal(await (await worker.fetch("/api/archive/images/7")).text(), "archive"); assert.equal(worker.calls.length, before);
 });
+
+async function sessionWorker() {
+  const source = await readFile(new URL("../sw/sw.js", import.meta.url), "utf8");
+  const handlers = {};
+  const stores = new Map();
+  const key = request => typeof request === "string" ? new URL(request, "https://rss.example").href : request.url;
+  const storage = {
+    keys: async () => [...stores.keys()],
+    delete: async name => stores.delete(name),
+    open: async name => {
+      if (!stores.has(name)) {
+        const entries = new Map();
+        stores.set(name, {
+          match: async request => entries.get(key(request))?.clone(),
+          put: async (request, response) => entries.set(key(request), response.clone()),
+          delete: async request => entries.delete(key(request)),
+          keys: async () => [...entries.keys()].map(url => new Request(url)),
+        });
+      }
+      return stores.get(name);
+    },
+  };
+  let respond = async () => { throw new Error("offline"); };
+  const scope = { addEventListener: (type, handler) => { handlers[type] = handler; }, location: { origin: "https://rss.example" }, clients: { claim: async () => {} } };
+  new Function("self", "caches", "fetch", source)(scope, storage, request => respond(request));
+  return {
+    storage,
+    respond: callback => { respond = callback; },
+    fetch: (path, method = "GET") => {
+      let result;
+      handlers.fetch({ request: new Request(`https://rss.example${path}`, { method }), respondWith: value => { result = value; } });
+      return result;
+    },
+    activate: () => { let result; handlers.activate({ waitUntil: value => { result = value; } }); return result; },
+  };
+}
+const json = value => new Response(JSON.stringify(value), { headers: { "content-type": "application/json" } });
+
+test("a fresh login cannot fall back to another account's articles or images", async () => {
+  const worker = await sessionWorker();
+  worker.respond(async request => request.url.endsWith("/auth/me") ? json({ id: 1 }) : json([{ title: "Admin article" }]));
+  await worker.fetch("/api/auth/me");
+  await worker.fetch("/api/items");
+  const cache = await worker.storage.open("fk-api");
+  await cache.put("/api/archive/images/7", new Response("Admin image"));
+  worker.respond(async () => json({ id: 2 }));
+  assert.equal((await (await worker.fetch("/api/auth/me")).json()).id, 2);
+  worker.respond(async () => { throw new Error("offline"); });
+  await assert.rejects(worker.fetch("/api/items"), /offline/);
+  await assert.rejects(worker.fetch("/api/archive/images/7"), /offline/);
+});
+
+test("a login drops caches even when the previous session expired without logout", async () => {
+  const worker = await sessionWorker();
+  await (await worker.storage.open("fk-api")).put("/api/items", json([{ title: "Admin article" }]));
+  worker.respond(async () => json({ ok: true }));
+  await worker.fetch("/api/auth/login", "POST");
+  worker.respond(async () => { throw new Error("offline"); });
+  await assert.rejects(worker.fetch("/api/items"), /offline/);
+});
+
+test("late article responses cannot refill the cache after another login", async () => {
+  const worker = await sessionWorker();
+  let finish;
+  let started;
+  const began = new Promise(resolve => { started = resolve; });
+  worker.respond(request => {
+    if (request.url.endsWith("/items")) { started(); return new Promise(resolve => { finish = resolve; }); }
+    return Promise.resolve(json({ ok: true }));
+  });
+  const pending = worker.fetch("/api/items");
+  await began;
+  await worker.fetch("/api/auth/login", "POST");
+  finish(json([{ title: "Admin article" }]));
+  await assert.rejects(pending, /session_changed/);
+  assert.equal(await (await worker.storage.open("fk-api")).match("/api/items"), undefined);
+});
+
+test("an expired session and worker upgrades discard personal legacy responses", async () => {
+  const worker = await sessionWorker();
+  await (await worker.storage.open("fk-api")).put("/api/items", json([{ title: "Admin article" }]));
+  worker.respond(async () => new Response(null, { status: 401 }));
+  assert.equal((await worker.fetch("/api/auth/me")).status, 401);
+  assert.equal(await (await worker.storage.open("fk-api")).match("/api/items"), undefined);
+  await worker.storage.open("fk-offline");
+  await worker.activate();
+  assert.equal((await worker.storage.keys()).includes("fk-offline"), false);
+  assert.equal((await worker.storage.keys()).includes("fk-api"), false);
+});

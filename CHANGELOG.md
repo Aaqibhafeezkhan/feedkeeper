@@ -4,11 +4,17 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-17
+
 ### Added
 - Empty gallery filtering: a gallery term in the URL path together with empty or read-more-only feed/body text marks an item as an empty gallery. Normal lists, search, notifications and edition curation omit these entries; short articles and photo captions remain visible. Bookmarked or annotated items remain in lists/search, and direct reads and sync retain the original data.
 - Native clients can inspect `content.isEmptyGallery` (advertised by `item.empty-gallery`). Reclassification advances the content revision and emits an ordinary `item_content` sync update rather than a deletion.
 
+### Fixed
+- Isolate web offline article snapshots and queued changes by authenticated account. Clear private service-worker responses on login, expired sessions and account switches, and prevent late responses from refilling a later session's cache. Refresh account bindings across browser tabs.
+
 ### Upgrade notes
+- Legacy web offline copies without account ownership are discarded; sign in online once to download a fresh account-bound copy.
 - Migration `0040_empty_gallery.sql` adds the classification and schedules existing articles for the bounded metadata backfill. Existing entries are classified gradually after startup; new/updated feed entries and downloaded full text are classified immediately. No publisher content, saved state, notes or existing editions are removed. Subscription unread counts keep their existing raw-count semantics, as with keyword filtering.
 
 ## [0.27.2] - 2026-10-16
