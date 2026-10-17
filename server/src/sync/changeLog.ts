@@ -52,6 +52,7 @@ interface BatchItemStateRow {
 
 interface BatchItemContentRow {
   id: number;
+  is_empty_gallery: number;
   content_revision: number;
   source: "reader" | "feed" | "snippet";
   extraction_status: string;
@@ -101,6 +102,7 @@ function loadItemContents(userId: number, itemIds: number[]): Map<number, Record
     .prepare<[string], BatchItemContentRow>(
       `SELECT i.id,
               i.content_revision,
+              i.is_empty_gallery,
               CASE WHEN i.full_content_html IS NOT NULL AND i.full_content_html != '' THEN 'reader'
                    WHEN i.content_html IS NOT NULL AND i.content_html != '' THEN 'feed'
                    ELSE 'snippet' END AS source,
@@ -119,6 +121,7 @@ function loadItemContents(userId: number, itemIds: number[]): Map<number, Record
       status: row.extraction_status,
       attemptedAt: row.extraction_attempted_at,
       retryAt: row.extraction_retry_at,
+      isEmptyGallery: Boolean(row.is_empty_gallery),
     });
   }
   return result;

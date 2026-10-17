@@ -85,6 +85,7 @@ Started without a `SESSION_SECRET` (for example from one of the templates below)
 - **Article notes and lasting knowledge** — attach personal Markdown notes to any article. Notes sync across devices, export to standalone Markdown files, and protect articles permanently from retention cleanups.
 - **Authoritative feed icons** — icons are cached on the server with SHA-256 hashes and conditional ETags, so devices load them fast without third-party requests.
 - **Keyword mute filters** — cut through information overload by filtering out articles matching specific keywords before they reach your stream.
+- **Empty gallery filtering** — gallery links with no editorial text (only an image or a read-more prompt) stay out of article lists, search, notifications and curation. Short news and captions remain visible; saved or annotated items remain accessible. Nothing is deleted.
 - **Health monitoring** — clear status indicators show polling health, consecutive fetch errors, and timestamps so you instantly spot dead feeds.
 - **Universal Inbox (Read-it-Later)** — save web clippings, URLs, and personal notes directly to your personal inbox from any browser, share extension, or MCP client. Full article contents and lead images are automatically extracted and archived offline.
 - **Curated editions & daily briefings** — finite morning, midday, and evening editions. Curated by external agents via MCP (e.g. Claude, local LLMs, or custom scripts), with structured, linked editorial overviews. The latest publication remains available until its successor is published.

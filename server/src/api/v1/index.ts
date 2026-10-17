@@ -29,6 +29,7 @@ const FEATURES = [
   "content.prepare",
   "item.lead",
   "item.author",
+  "item.empty-gallery",
   "images",
   "muted-keywords",
   "opml",

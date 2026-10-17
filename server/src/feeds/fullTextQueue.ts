@@ -1,4 +1,5 @@
 import { isCachedConsentSnippet } from "./extractor.js";
+import { refreshLead } from "./lead.js";
 import { db } from "../db/index.js";
 import { hasUserCapability } from "../auth/capabilities.js";
 import { loadFullText, executeFullText, type FullTextResult } from "./fullText.js";
@@ -294,6 +295,7 @@ export function startFullTextScheduler(): NodeJS.Timeout {
   db.transaction(() => {
     for (const item of cached) if (isCachedConsentSnippet(item.full_content_html)) {
       db.prepare("UPDATE items SET full_content_html=NULL,extraction_status='pending',extraction_retry_at=NULL WHERE id=?").run(item.id);
+      refreshLead(item.id);
     }
   })();
   tick(); seedTimer = setInterval(tick, 15_000); seedTimer.unref(); return seedTimer;

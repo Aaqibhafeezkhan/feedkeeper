@@ -2,7 +2,7 @@ import { db } from "../db/index.js";
 import { articleText } from "./articleContent.js";
 import { LEAD_VERSION } from "./contentNoise.js";
 import { largerHeroImage } from "./heroImage.js";
-import { refreshLead } from "./lead.js";
+import { refreshGalleryClassification, refreshLead } from "./lead.js";
 import { decodeEntities } from "./text.js";
 
 export interface Feed {
@@ -39,6 +39,7 @@ export interface Item {
   content_revision: number;
   content_lead: string | null;
   lead_version: number | null;
+  is_empty_gallery: number;
   extraction_status: string;
   extraction_attempted_at: string | null;
   extraction_retry_at: string | null;
@@ -342,9 +343,11 @@ export function upsertItems(
           if (changed) {
             update.run(row.title ?? null, row.link ?? null, nextSnippet, retained, row.publishedAt ?? null, nextImage, row.author ?? null, feedId, row.guid);
             const leadChanged = (retained !== null && retained !== previous.content_html) ||
+              (row.link !== undefined && row.link !== previous.link) ||
               (row.title !== undefined && row.title !== previous.title) ||
               (!keptPrevious && row.contentSnippet !== undefined && row.contentSnippet !== previous.content_snippet);
             if (previous.lead_version !== LEAD_VERSION || (leadChanged && !previous.full_content_html)) refreshLead(previous.id);
+            else if (leadChanged) refreshGalleryClassification(previous.id);
           } else if (previous.lead_version !== LEAD_VERSION && !previous.full_content_html) {
             refreshLead(previous.id);
           }
@@ -392,6 +395,11 @@ export function listItemsForUser(
     conditions.push("(s.id IS NOT NULL OR b.item_id IS NOT NULL)");
   }
   const params: unknown[] = [];
+
+  // Keep the stored item available to direct reads and sync; deliberate saves/notes override stream filtering.
+  conditions.push(`(i.is_empty_gallery = 0 OR b.item_id IS NOT NULL OR
+    EXISTS (SELECT 1 FROM item_notes gallery_note WHERE gallery_note.item_id = i.id AND gallery_note.user_id = ?))`);
+  params.push(userId);
 
   if (opts.feedId) {
     conditions.push("i.feed_id = ?");
@@ -823,6 +831,7 @@ export function repairEncodedText(): number {
       const snippet = decodeEntities(row.content_snippet);
       if (title !== row.title || snippet !== row.content_snippet) {
         update.run(title ?? null, snippet ?? null, row.id);
+        refreshLead(row.id);
         fixed++;
       }
     }
@@ -996,7 +1005,8 @@ export function searchItemsForUser(
   total: number;
 } {
   const fts = needsSubstringSearch(opts.query) ? "" : formatFtsQuery(opts.query);
-  const conditions: string[] = ["(s.id IS NOT NULL OR b.item_id IS NOT NULL OR n.user_id IS NOT NULL)"];
+  const conditions: string[] = ["(s.id IS NOT NULL OR b.item_id IS NOT NULL OR n.user_id IS NOT NULL)",
+    "(i.is_empty_gallery = 0 OR b.item_id IS NOT NULL OR n.user_id IS NOT NULL)"];
   const params: unknown[] = [];
 
   if (opts.feedId) {

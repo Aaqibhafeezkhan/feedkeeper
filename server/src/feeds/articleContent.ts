@@ -37,7 +37,7 @@ export function readerHtml(html: string | null | undefined, title?: string | nul
 export function contentMetadata(item: Item) {
   const source = item.full_content_html ? "reader" : item.content_html ? "feed" : "snippet";
   return { revision: item.content_revision, source, status: item.extraction_status,
-    attemptedAt: item.extraction_attempted_at, retryAt: item.extraction_retry_at };
+    attemptedAt: item.extraction_attempted_at, retryAt: item.extraction_retry_at, isEmptyGallery: Boolean(item.is_empty_gallery) };
 }
 
 export function sourceText(item: Item) {

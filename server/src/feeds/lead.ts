@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { db } from "../db/index.js";
 import { LEAD_VERSION, leadText } from "./contentNoise.js";
 import type { Item } from "./repository.js";
+import { isEmptyGallery } from "./galleryContent.js";
 
 type LeadSource = Pick<Item, "title" | "content_snippet" | "content_html" | "full_content_html">;
 type StoredLead = LeadSource & Pick<Item, "content_lead" | "lead_version">;
@@ -17,9 +18,17 @@ export function computeLead(item: LeadSource): string {
 
 /** Derive and store the lead of one item; call after its title, summary or content was written. */
 export function refreshLead(itemId: number): void {
-  const item = db.prepare<[number], LeadSource>("SELECT title, content_snippet, content_html, full_content_html FROM items WHERE id = ?").get(itemId);
+  const item = db.prepare<[number], LeadSource & Pick<Item, "link">>("SELECT title, link, content_snippet, content_html, full_content_html FROM items WHERE id = ?").get(itemId);
   if (!item) return;
-  db.prepare("UPDATE items SET content_lead = ?, lead_version = ? WHERE id = ?").run(computeLead(item), LEAD_VERSION, itemId);
+  db.prepare("UPDATE items SET content_lead = ?, lead_version = ?, is_empty_gallery = ? WHERE id = ?")
+    .run(computeLead(item), LEAD_VERSION, Number(isEmptyGallery(item)), itemId);
+}
+
+/** A changed feed summary/link can affect visibility while the lead still belongs to the retained full text. */
+export function refreshGalleryClassification(itemId: number): void {
+  const item = db.prepare<[number], Pick<Item, "link" | "content_snippet" | "content_html" | "full_content_html">>(
+    "SELECT link, content_snippet, content_html, full_content_html FROM items WHERE id = ?").get(itemId);
+  if (item) db.prepare("UPDATE items SET is_empty_gallery = ? WHERE id = ?").run(Number(isEmptyGallery(item)), itemId);
 }
 
 /**
@@ -41,11 +50,11 @@ export function leadOf(item: StoredLead): string | null {
 
 /** Derive leads for items that have none or were derived by older rules; returns how many were handled. */
 export function backfillLeads(limit = BACKFILL_BATCH): number {
-  const rows = db.prepare<[number, number], LeadSource & { id: number }>(
-    "SELECT id, title, content_snippet, content_html, full_content_html FROM items WHERE lead_version IS NULL OR lead_version <> ? LIMIT ?",
+  const rows = db.prepare<[number, number], LeadSource & Pick<Item, "link"> & { id: number }>(
+    "SELECT id, title, link, content_snippet, content_html, full_content_html FROM items WHERE lead_version IS NULL OR lead_version <> ? LIMIT ?",
   ).all(LEAD_VERSION, limit);
-  const update = db.prepare("UPDATE items SET content_lead = ?, lead_version = ? WHERE id = ?");
-  db.transaction(() => { for (const row of rows) update.run(computeLead(row), LEAD_VERSION, row.id); })();
+  const update = db.prepare("UPDATE items SET content_lead = ?, lead_version = ?, is_empty_gallery = ? WHERE id = ?");
+  db.transaction(() => { for (const row of rows) update.run(computeLead(row), LEAD_VERSION, Number(isEmptyGallery(row)), row.id); })();
   return rows.length;
 }
 

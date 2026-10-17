@@ -838,6 +838,9 @@ components:
         status: { type: string, enum: [pending, ready, feed_only, consent_wall, paywall, bot_blocked, timeout, partial, failed] }
         attemptedAt: { type: [string, "null"], format: date-time }
         retryAt: { type: [string, "null"], format: date-time }
+        isEmptyGallery:
+          type: boolean
+          description: "Shared publisher classification advertised by item.empty-gallery. Gallery path and only empty/read-more text; no minimum article length. Ordinary lists/search omit these items unless saved or annotated by the caller. Direct reads and sync remain available."
     Item:
       type: object
       properties:
