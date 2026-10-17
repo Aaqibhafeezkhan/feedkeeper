@@ -367,3 +367,73 @@ test("the English forms of byline, comment rules and ad label are handled like t
     assert.doesNotMatch(cleanReaderHtml(body + `<p>${label}</p><h3>Related</h3><ul><li><a href="https://example.test/a">Another story</a></li></ul>`, "T"), new RegExp(`<p>${label}</p>`), label);
   }
 });
+
+test("long product cards do not leave an orphan header in German, English or Japanese", () => {
+  for (const label of ["Produkthinweis", "Produktempfehlung", "Product notice", "Product recommendation", "商品紹介", "商品案内", "製品紹介"]) {
+    const name = "XREAL One Pro AR Brille mit X1 Chip, 171 Zoll 120Hz HD Display, Native 3DoF XR Brille 57 Grad Sichtfeld, X-Prism Optik und weiteres Zubehör".padEnd(205, "X");
+    const content = `<div><div style="background: url(https://shop.test/product.jpg)"></div><div><a href="https://shop.test/product">${name}</a><span>599,00 EUR</span></div></div>`;
+    const html = BODY + `<div><div><span>${label}</span></div>${content}</div><p>Dieser Artikel enthält Affiliate-Links.</p>`;
+    const cleaned = cleanReaderHtml(html, "Title");
+    assert.ok(!cleaned.includes(label), label);
+    assert.doesNotMatch(cleaned, /XREAL|599,00/);
+    assert.match(cleaned, /Dieser Artikel enthält Affiliate-Links/);
+    assert.match(cleanReaderHtml(BODY + `<h2>${label}</h2><p>Ein redaktioneller Produkttest mit echten Informationen.</p>`, "Title"), new RegExp(label));
+  }
+});
+
+test("empty nested ad slots disappear between story paragraphs in multiple languages", () => {
+  for (const label of ["Anzeige", "Werbung", "Advertisement", "Advertising", "Ad", "Sponsored content", "広告", "広告掲載", "スポンサー記事", "PR"]) {
+    const before = "Vor dem leeren Werbeplatz steht ein normaler Artikelabsatz.";
+    const after = "Nach dem leeren Werbeplatz geht der Artikel unverändert weiter.";
+    const slot = `<div class="ad"><span></span><div><div><font size="1">${label}</font><div id="slot"></div></div></div></div>`;
+    const cleaned = cleanReaderHtml(BODY + `<p>${before}</p>${slot}<p>${after}</p>`, "Title");
+    assert.ok(!cleaned.includes(label), label);
+    assert.ok(cleaned.includes(before) && cleaned.includes(after));
+    for (const ad of [
+      '<a href="https://shop.test/ad">Jetzt kaufen / Buy now / 今すぐ購入</a>',
+      '<img src="https://shop.test/ad.jpg">', '<iframe src="https://shop.test/ad"></iframe>',
+      '<p>Ein gesponserter Beitrag. Sponsored article. スポンサーによる記事です。</p>',
+    ]) {
+      assert.ok(cleanReaderHtml(BODY + `<div>${label}<div></div>${ad}</div>`, "Title").includes(label), `${label}: ${ad}`);
+    }
+    assert.ok(cleanReaderHtml(BODY + `<p>${label}</p><p>Sponsored article / gesponserter Beitrag / 提供記事</p>`, "Title").includes(label));
+  }
+});
+
+test("identical adjacent desktop and mobile photos collapse without losing surrounding text", () => {
+  const image = '<img src="https://pictures.test/story.png" srcset="https://pictures.test/story.png?=1x 1x, https://pictures.test/story.png?=2x 2x" alt="">';
+  for (const pair of [image + image, `<div>${image}</div><div>${image}</div>`, image + image + image, `<picture>${image}${image}</picture>`]) {
+    const stats: NoiseStats = {};
+    const cleaned = cleanReaderHtml(BODY + pair + '<p>Die Handlung geht hier weiter.</p>', "Title", stats);
+    assert.equal((cleaned.match(/<img /g) ?? []).length, 1);
+    assert.match(cleaned, /Die Handlung geht hier weiter/);
+    assert.ok(stats["duplicate-image"] >= 1);
+  }
+});
+
+test("image identity preserves query parameters, origins, paths, captions and editorial repetitions", () => {
+  const image = '<img src="https://pictures.test/a/photo.jpg?id=1" alt="Photo">';
+  for (const other of [
+    '<img src="https://pictures.test/a/photo.jpg?id=2" alt="Photo">',
+    '<img src="https://other.test/a/photo.jpg?id=1" alt="Photo">',
+    '<img src="https://pictures.test/b/photo.jpg?id=1" alt="Photo">',
+    '<img src="https://pictures.test/a/photo.jpg?id=1" alt="Different caption">',
+    '<img src="https://pictures.test/a/photo.jpg?id=1" alt="Photo" srcset="https://pictures.test/other.jpg 2x">',
+    `<p>Ein erklärender Absatz.</p>${image}`, `<figcaption>Bildunterschrift / Caption / 写真説明</figcaption>${image}`,
+    `<video src="https://pictures.test/movie.mp4"></video>${image}`,
+  ]) assert.equal((cleanReaderHtml(BODY + image + other, "Title").match(/<img /g) ?? []).length, 2, other);
+  const links = `<a href="https://example.test/one">${image}</a><a href="https://example.test/two">${image}</a>`;
+  assert.equal((cleanReaderHtml(BODY + links, "Title").match(/<img /g) ?? []).length, 2);
+});
+
+
+test("labels left in otherwise empty wrappers after extraction are removed without stripping disclosures", () => {
+  for (const label of ["Anzeige", "Advertisement", "広告", "Produkthinweis", "Product notice", "商品紹介"]) {
+    const html = BODY + `<div><p><span>${label}</span></p></div><p>Hier geht der redaktionelle Text weiter.</p>`;
+    assert.ok(!cleanReaderHtml(html, "Title").includes(label), label);
+  }
+  for (const label of ["Sponsored content", "Paid content", "Advertorial", "Gesponsert", "スポンサー記事", "PR"]) {
+    const html = BODY + `<div><p>${label}</p></div><p>Der zugehörige gesponserte Artikel.</p>`;
+    assert.ok(cleanReaderHtml(html, "Title").includes(label), label);
+  }
+});

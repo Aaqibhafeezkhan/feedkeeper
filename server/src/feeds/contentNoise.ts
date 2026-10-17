@@ -122,7 +122,14 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
       if (text.length > PRODUCT_CARD_CHARACTERS) break;
       if (ancestor.querySelector("a[href]") && PRICE.test(text)) card = ancestor;
     }
-    if (card) drop(card, "product-card");
+    if (card) {
+      const parent = card.parentElement;
+      drop(card, "product-card");
+      // A long product name can put the enclosing header just beyond the card's size limit.
+      if (parent && PRODUCT_LABEL.test(flat(parent.textContent)) && !parent.querySelector("img, picture, iframe, video, a[href]")) {
+        drop(parent, "empty-product-label");
+      }
+    }
   }
 
   // Structured data is for machines. Frameworks render it as an element of any name (`<component type="application/ld+json">`),
@@ -200,6 +207,24 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
     }
     drop(block, "comment-rules");
     break;
+  }
+
+  // Empty nested slots are structural evidence: the next story paragraph is outside this ad container.
+  // Do not infer an empty ad from a standalone heading followed by text (which may itself be sponsored).
+  for (const container of [...root.querySelectorAll("div, aside, section, p")]) {
+    if (!root.contains(container)) continue;
+    const text = flat(container.textContent);
+    const product = PRODUCT_LABEL.test(text);
+    if (!product && !AD_LABEL.test(text)) continue;
+    if (container.querySelector("img, picture, iframe, video, audio, a[href], object, embed")) continue;
+    const emptySlot = container.querySelector("div:empty, ins:empty");
+    // Readability may remove the empty slot, leaving only its enclosing block and label paragraph.
+    const isolated = container.matches("div, aside, section") && container.querySelector("p") &&
+      (product || AD_SLOT_LABEL.test(text));
+    const next = container.nextElementSibling;
+    const nextHasMedia = next && (next.matches("img, picture, iframe, video, audio, a[href]") ||
+      next.querySelector("img, picture, iframe, video, audio, a[href]"));
+    if (emptySlot || (isolated && !nextHasMedia)) drop(container, product ? "empty-product-label" : "empty-ad-label");
   }
 
   // An ad label whose ad is not there (a script fills it): sponsored content itself stays, the label above nothing goes.
@@ -296,12 +321,13 @@ export function cleanReaderHtml(html: string, title?: string | null, stats: Nois
   if (!html) return html;
   const root = JSDOM.fragment(html);
   const images = resolveCustomImages(root, stats);
+  const duplicates = collapseAdjacentImages(root, stats);
   const variants = collapseImageVariants(root, stats);
   const videos = resolveVideoPlayers(root, stats);
   const noise = removeReaderNoise(root, title, stats, author);
   const typography = removeTypography(root, stats);
   videos.links.forEach(link => { if (root.contains(link)) link.setAttribute("data-media", "video"); });
-  return images || variants || videos.changed || noise || typography ? serialize(root) : html;
+  return images || duplicates || variants || videos.changed || noise || typography ? serialize(root) : html;
 }
 
 const PLAY_LABEL = /^(video starten|video abspielen|abspielen|wiedergabe( starten)?|play( video)?|watch( video)?|start video)$/i;
@@ -466,6 +492,40 @@ function collapseImageVariants(root: DocumentFragment, stats: NoiseStats): boole
   return changed;
 }
 
+/** Responsive copies may be separate images whose CSS normally hides one. Only exact adjacent copies go;
+ * text, other media, different links, captions and responsive sources keep images distinct. */
+function collapseAdjacentImages(root: DocumentFragment, stats: NoiseStats): boolean {
+  const walker = root.ownerDocument.createTreeWalker(root, 1 | 4);
+  let previous: string | null = null;
+  const duplicates: Element[] = [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node.nodeType === 3) {
+      if (flat(node.textContent)) previous = null;
+      continue;
+    }
+    const element = node as Element;
+    if (element.matches("video, audio, iframe, object, embed, hr")) previous = null;
+    if (element.tagName !== "IMG") continue;
+    const src = flat(element.getAttribute("data-src") || element.getAttribute("data-lazy-src") ||
+      element.getAttribute("data-original") || element.getAttribute("src"));
+    if (!src || /^(data|blob):/i.test(src)) { previous = null; continue; }
+    const picture = element.closest("picture");
+    const key = JSON.stringify([src, element.getAttribute("srcset"), element.getAttribute("data-srcset"),
+      element.getAttribute("alt"), element.getAttribute("title"), element.closest("a")?.getAttribute("href"),
+      [...(picture?.querySelectorAll("source") ?? [])].map(source =>
+        [source.getAttribute("srcset"), source.getAttribute("media"), source.getAttribute("type")])]);
+    if (previous === key) duplicates.push(picture?.querySelectorAll("img").length === 1 ? picture : element);
+    else previous = key;
+  }
+  for (const duplicate of duplicates) {
+    const parent = duplicate.parentNode;
+    duplicate.remove();
+    pruneEmpty(parent);
+    stats["duplicate-image"] = (stats["duplicate-image"] ?? 0) + 1;
+  }
+  return duplicates.length > 0;
+}
+
 const CREDIT_PATTERNS: RegExp[] = [
   /^(©|\(c\)\s|copyright\b)/i,
   /^[([]?(Bild|Foto|Fotos|Bildquelle|Bildrechte|Bildnachweis|Titelbild|Beitragsbild|Photo|Image|Credits?|Grafik|Illustration)[)\]]?\s*[:/|]/i,
@@ -516,7 +576,9 @@ const COMMENT_PATTERNS: RegExp[] = [
   /\b(let us know|tell us) .{0,40}in the comments\b/i,
   /\bNur angemeldete Benutzer können kommentieren\b/i,
 ];
-const AD_LABEL = /^(Anzeige|Werbung|Advertisement|Advertising|Advertorial|Ads?|Sponsored( content| post)?|Paid (content|post)|Gesponsert|Promoted)\s*:?$/i;
+const AD_LABEL = /^(Anzeige|Werbung|Advertisement|Advertising|Advertorial|Ads?|Sponsored( content| post)?|Paid (content|post)|Gesponsert|Promoted|広告|広告掲載|スポンサー(?:記事|コンテンツ)?|宣伝|PR)\s*[:：]?$/i;
+const AD_SLOT_LABEL = /^(Anzeige|Werbung|Advertisement|Advertising|Ads?|広告|広告掲載|宣伝)\s*[:：]?$/i;
+const PRODUCT_LABEL = /^(Produkthinweis|Produktempfehlung|Product (notice|recommendation)|商品紹介|商品案内|製品紹介)\s*[:：]?$/i;
 const COMMENT_RULES_HEADING = /^(Regeln für Kommentare|Kommentarregeln|Kommentar-Richtlinien|Community[- ]Richtlinien|(Comment(ing)?|Community|Discussion|House) (rules|guidelines|policy|policies)|Rules for comments|Commenting rules)\s*:?$/i;
 const TAG_LABEL = /^(Schlagw(ö|oe)rter|Schlagworte|Tags?|Keywords|Themen|Topics)\s*:?$/i;
 const VIDEO_CARD = /^\d{1,2}:\d{2}(:\d{2})?(?=\D)\s*\S/;

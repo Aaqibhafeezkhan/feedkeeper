@@ -4,6 +4,12 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-10-17
+
+### Fixed
+- Remove orphan product-card headers and empty ad-slot labels, including wrappers left by full-text extraction, with German, English and Japanese label recognition. Preserve actual advertising, affiliate disclosures and sponsored-article labels.
+- Collapse identical adjacent desktop/mobile image copies in reader HTML while preserving distinct sources, links, responsive sources, captions and repetitions separated by text. Stored publisher HTML remains unchanged.
+
 ## [0.28.0] - 2026-10-17
 
 ### Added
@@ -516,7 +522,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.27.2...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.28.1...HEAD
+[0.28.1]: https://github.com/visualfusion/feedkeeper/compare/v0.28.0...v0.28.1
+[0.28.0]: https://github.com/visualfusion/feedkeeper/compare/v0.27.2...v0.28.0
 [0.27.2]: https://github.com/visualfusion/feedkeeper/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/visualfusion/feedkeeper/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/visualfusion/feedkeeper/compare/v0.26.6...v0.27.0

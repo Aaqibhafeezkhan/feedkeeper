@@ -294,6 +294,10 @@ By default, FeedKeeper checks up to four feeds at once, with at most two request
 
 Run **one application process per database**. On hosts with little memory, start with `POLL_CONCURRENCY=2` and `POLL_HOST_CONCURRENCY=1`. Allow 45 seconds for shutdown; the supplied Docker Compose file already does this. See [Feed polling](docs/feed-polling.md) for the settings, logs and upgrade guidance.
 
+### Reader cleanup
+
+Reader HTML is cleaned when served, without rewriting stored publisher content. Exact adjacent image copies (for example separate desktop/mobile elements) collapse to one; different sources, links, responsive sources, captions and repetitions separated by text remain distinct. Empty product-card headers and ad slots are removed using their container structure and German, English and Japanese labels. Existing advertising content, affiliate disclosures and sponsored-article labels remain readable. These rules also apply to previously stored articles when requested again; downloaded client copies need to refresh before they reflect a server update.
+
 ### Article images
 
 The image proxy shares downloads and cached images between subscribers of the same feed. This covers native clients requesting proxy images and the web app's offline copies; images loaded directly from a publisher bypass this cache. Every request still checks access to the article and its image. Different feeds and different source URLs, including query parameters, have separate cache entries.
