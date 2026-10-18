@@ -4,6 +4,13 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.28.3] - 2026-10-18
+
+### Fixed
+- Feed auto-discovery resilience: parsing network or HTTP errors (such as Cloudflare challenges on website landing pages) no longer abort the entire discovery pipeline, allowing alternate common feed paths to be probed.
+- Feed candidate paths: added trailing-slash paths `/feed/` and `/rss/` to common feed discovery probes and probe trailing slash URL variants when direct feed inspection returns no result.
+- Subscription error reporting: distinguish feed poll failures during initial subscription so clients receive specific errors (such as HTTP 403 or network errors) instead of generic no-feeds-found errors.
+
 ## [0.28.2] - 2026-10-18
 
 ### Fixed
@@ -528,7 +535,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.28.2...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.28.3...HEAD
+[0.28.3]: https://github.com/visualfusion/feedkeeper/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/visualfusion/feedkeeper/compare/v0.28.1...v0.28.2
 [0.28.1]: https://github.com/visualfusion/feedkeeper/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/visualfusion/feedkeeper/compare/v0.27.2...v0.28.0

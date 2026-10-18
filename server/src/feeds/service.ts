@@ -91,7 +91,10 @@ export async function subscribeToFeed(
   // (e.g. a homepage that announces itself as RSS); don't keep the subscription.
   if (pollResult.error && !pollResult.deferred && !findFeedById(feed.id)?.last_success_at) {
     unsubscribeRepo(userId, feed.id);
-    throw new NoFeedsFoundError();
+    if (pollResult.error === "feed_invalid_or_unavailable") {
+      throw new NoFeedsFoundError();
+    }
+    throw new FeedError(pollResult.error);
   }
 
   const subscription = findSubscriptionForUser(userId, feed!.id);
