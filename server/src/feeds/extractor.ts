@@ -48,6 +48,33 @@ function cleanConsentDom(doc: Document): void {
   }
 }
 
+function resolveLazyImages(doc: Document): void {
+  const images = doc.querySelectorAll("img");
+  for (const img of images) {
+    const lazySrc =
+      img.getAttribute("data-lazy-src") ||
+      img.getAttribute("data-src") ||
+      img.getAttribute("data-original") ||
+      img.getAttribute("data-actualsrc");
+    const src = img.getAttribute("src");
+    if (lazySrc && (!src || src.startsWith("data:") || src.length < 10)) {
+      img.setAttribute("src", lazySrc);
+    }
+    const lazySrcset = img.getAttribute("data-lazy-srcset") || img.getAttribute("data-srcset");
+    const srcset = img.getAttribute("srcset");
+    if (lazySrcset && (!srcset || srcset.startsWith("data:"))) {
+      img.setAttribute("srcset", lazySrcset);
+    }
+  }
+  const sources = doc.querySelectorAll("source");
+  for (const source of sources) {
+    const lazySrcset = source.getAttribute("data-lazy-srcset") || source.getAttribute("data-srcset");
+    if (lazySrcset) {
+      source.setAttribute("srcset", lazySrcset);
+    }
+  }
+}
+
 /**
  * Checks if a given URL or extracted HTML/text is a cookie / consent wall rather than article content.
  */
@@ -203,6 +230,7 @@ async function extractArticleContent(rawUrl: string, fetchImpl: ArticleFetch, si
     try {
       const paywall = /"isAccessibleForFree"\s*:\s*(?:false|"false")/i.test(fetched.html);
       cleanConsentDom(dom.window.document);
+      resolveLazyImages(dom.window.document);
 
       parsed = new Readability(dom.window.document, { charThreshold: 60 }).parse();
       if (isConsentContent(fetched.url, parsed?.content ?? fetched.html, parsed?.title, parsed?.textContent)) {

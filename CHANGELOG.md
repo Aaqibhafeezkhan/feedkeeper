@@ -4,6 +4,12 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.28.4] - 2026-10-18
+
+### Fixed
+- Resolve lazy-loaded images in article extraction: convert `data-lazy-src`, `data-src`, `data-original`, and responsive `data-lazy-srcset` / `data-srcset` attributes into standard `src` and `srcset` attributes before readability extraction. Inline images on WordPress blogs and publishers using client-side lazy loaders are no longer omitted or replaced with empty placeholders.
+- Add diagnostic logging for article image proxy failures: log upstream fetch errors (such as publisher WAF challenges or network timeouts) to aid troubleshooting without exposing internal network details to clients.
+
 ## [0.28.3] - 2026-10-18
 
 ### Fixed
@@ -535,7 +541,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.28.3...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.28.4...HEAD
+[0.28.4]: https://github.com/visualfusion/feedkeeper/compare/v0.28.3...v0.28.4
 [0.28.3]: https://github.com/visualfusion/feedkeeper/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/visualfusion/feedkeeper/compare/v0.28.1...v0.28.2
 [0.28.1]: https://github.com/visualfusion/feedkeeper/compare/v0.28.0...v0.28.1
