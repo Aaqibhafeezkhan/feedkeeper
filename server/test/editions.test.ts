@@ -40,6 +40,27 @@ test("server editions and app preferences keep devices in step without changing 
   }
   const isError = (code: string) => (error: unknown) => error instanceof NativeError && error.code === code;
 
+  await t.test("textless media from any publisher are excluded from candidates and publication without changing the library or old issues", () => {
+    const owner = user();
+    const source = feed(owner);
+    const news = article(source);
+    const issue = editions.publishCuratedEdition(owner, { itemIds: [news] }, now);
+    const media = ["https://www.tagesschau.de/multimedia/video/video-123.html", "https://another.example/watch/456", "https://publisher.example/posts/789"]
+      .map(link => article(source, { link }));
+    for (const id of media) {
+      db.prepare("UPDATE items SET content_snippet = '[mehr]', content_html = '<video src=\"/clip.mp4\"></video>' WHERE id = ?").run(id);
+      assert.equal(editions.editionCandidates(owner, now).some(item => item.id === id), false);
+      assert.throws(() => editions.publishCuratedEdition(owner, { itemIds: [news, id] }, now), isError("item_excluded"));
+      assert.ok(repo.listItemsForUser(owner).some(item => item.id === id));
+    }
+    assert.deepEqual(editions.getEdition(owner)!.itemIds, issue.itemIds);
+    db.prepare("UPDATE items SET full_content_html = '<p>A short transcript of the video.</p>' WHERE id = ?").run(media[0]);
+    assert.ok(editions.editionCandidates(owner, now).some(item => item.id === media[0]));
+    assert.deepEqual(editions.publishCuratedEdition(owner, { itemIds: [media[0]] }, now).itemIds, [media[0]]);
+    db.prepare("UPDATE items SET full_content_html = NULL WHERE id = ?").run(media[0]);
+    assert.deepEqual(editions.getEdition(owner)!.itemIds, [media[0]], "existing editions are not rewritten");
+  });
+
   await t.test("preferences are scoped, revision checked, replay safe and independent of web folder ordering", () => {
     const owner = user(), other = user();
     const z = repo.createFolder(owner, "Zulu"), a = repo.createFolder(owner, "Alpha"), foreign = repo.createFolder(other, "Private");

@@ -144,6 +144,21 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
   const headline = normalized(title ?? "");
   const seen = new Set<string>();
   const authorKeys = (author ?? "").split(",").map(name => normalized(name)).filter(Boolean);
+  const cleanByline = (block: Element, text: string) => {
+    if (!BYLINE.test(text)) return;
+    if (authorKeys.length > 0 && authorKeys.every(name => normalized(text).includes(name))) { drop(block, "byline"); return; }
+    if (stripBylineDate(block)) { stats["byline-date"] = (stats["byline-date"] ?? 0) + 1; changed = true; }
+  };
+  // Some publishers use an inline wrapper as a standalone byline. Never treat spans inside prose as metadata.
+  for (const span of root.querySelectorAll("span")) {
+    if (!root.contains(span) || span.closest(BLOCKS) || span.querySelector(`${BLOCKS}, div`)) continue;
+    const text = flat(span.textContent);
+    if (text.length > 60 || !BYLINE.test(text) || charsBefore(root, span) > 800) continue;
+    if ([...(span.parentNode?.childNodes ?? [])].some(node => node !== span && node.nodeType === 3 && flat(node.textContent))) continue;
+    if ([...(span.parentElement?.children ?? [])].some(sibling => sibling !== span &&
+      !sibling.matches(`${BLOCKS}, div, article, section, header, footer, figure, ul, ol, table, aside`) && flat(sibling.textContent))) continue;
+    cleanByline(span, text);
+  }
   let leading = 0;
   let reachedText = false;
   let pastStart = false;
@@ -170,8 +185,8 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
         if (DATE_ONLY.test(text)) { drop(block, "dateline"); continue; }
         if (READING_TIME_ONLY.test(text)) { drop(block, "reading-time"); continue; }
         // When the feed names the author, the reader shows the name in its head: a byline that only says that goes.
-        if (BYLINE.test(text) && authorKeys.length > 0 && authorKeys.every(name => normalized(text).includes(name))) { drop(block, "byline"); continue; }
-        if (BYLINE.test(text) && stripBylineDate(block)) { stats["byline-date"] = (stats["byline-date"] ?? 0) + 1; changed = true; }
+        cleanByline(block, text);
+        if (!root.contains(block)) continue;
       }
     }
     if (headline && normalized(text) === headline && (position < 4 || (heading && position < 14))) { drop(block, "title-repeat"); continue; }

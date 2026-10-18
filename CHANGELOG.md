@@ -4,6 +4,12 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.28.2] - 2026-10-18
+
+### Fixed
+- Exclude textless media and read-more-only entries from edition candidates and publication, regardless of publisher. Keep short reports and transcripts eligible, and leave library entries and existing editions unchanged.
+- Remove repeated author and date lines wrapped in standalone inline elements from reader content. Keep author attribution when no author is available separately, and preserve inline mentions within the story.
+
 ## [0.28.1] - 2026-10-17
 
 ### Fixed
@@ -522,7 +528,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.28.1...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.28.2...HEAD
+[0.28.2]: https://github.com/visualfusion/feedkeeper/compare/v0.28.1...v0.28.2
 [0.28.1]: https://github.com/visualfusion/feedkeeper/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/visualfusion/feedkeeper/compare/v0.27.2...v0.28.0
 [0.27.2]: https://github.com/visualfusion/feedkeeper/compare/v0.27.1...v0.27.2

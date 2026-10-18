@@ -334,6 +334,37 @@ test("a byline keeps its author and loses the date the reader already shows in i
   assert.match(cleanReaderHtml("<p>Heute von Meier | 3. Mai 2026</p>" + BODY, "Title"), /Meier \| 3\. Mai 2026/, "only lines that begin as a byline");
 });
 
+test("standalone inline bylines lose repeated metadata in feed and extracted reader HTML", () => {
+  const byline = 'von <a href="https://example.test/author">Hannes Könitzer</a> I 16.10.2026 - 12:14';
+  const cases = [
+    `<span class="submitted-by">von Hannes Könitzer I 16.10.2026 - 12:14</span><div>${BODY}</div>`,
+    `<div><article><header><span property="dc:title" content="Title"></span></header><span>${byline}</span><div>${BODY}</div></article></div>`,
+  ];
+  for (const html of cases) {
+    const stats: NoiseStats = {};
+    const cleaned = cleanReaderHtml(html, "Title", stats, "Hannes Könitzer");
+    assert.doesNotMatch(cleaned, /Hannes Könitzer|16\.10\.2026|12:14/);
+    assert.match(cleaned, /ministry confirmed/);
+    assert.equal(stats.byline, 1);
+    assert.equal(cleanReaderHtml(cleaned, "Title", {}, "Hannes Könitzer"), cleaned);
+  }
+  const withoutAuthor = cleanReaderHtml(`<article><span>${byline}</span><div>${BODY}</div></article>`, "Title");
+  assert.match(withoutAuthor, /Hannes Könitzer/);
+  assert.doesNotMatch(withoutAuthor, /16\.10\.2026|12:14/);
+});
+
+test("inline author mentions inside prose and bylines far into the story are preserved", () => {
+  const mention = '<span>von Hannes Könitzer I 16.10.2026 - 12:14</span>';
+  for (const html of [
+    `<p>Eine Meldung ${mention} wird hier besprochen.</p>${BODY}`,
+    `<div>Eine Meldung ${mention} wird hier besprochen.${BODY}</div>`,
+    `<div><strong>Eine Meldung </strong>${mention}<em> wird hier besprochen.</em>${BODY}</div>`,
+    `${BODY}<p>${"More editorial text. ".repeat(50)}</p>${mention}`,
+  ]) {
+    assert.match(cleanReaderHtml(html, "Title", {}, "Hannes Könitzer"), /Hannes Könitzer I 16\.10\.2026 - 12:14/);
+  }
+});
+
 test("a comment-rules block at the end of an article is left out of the reader with everything below it", () => {
   const stats: NoiseStats = {};
   const html = "<div>" + BODY + "<p>Der Film startet am 11. März 2027.</p><h2>Regeln für Kommentare:</h2><p>1. Seid nett zueinander.</p>" +

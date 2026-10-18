@@ -7,6 +7,7 @@ import { editionPeriod, selectEdition, type EditionCandidate } from "./editionSe
 import { getNativePreferences } from "./preferences.js";
 import { checkEditionLayout, editionLayoutSchema, type EditionLayout } from "./editionLayout.js";
 import { NativeError, nativeRequest } from "./requests.js";
+import { hasEditionText, type EditionContent } from "./editionContent.js";
 
 export const overviewSchema = z.array(z.object({
   heading: z.string().trim().min(1).max(160),
@@ -149,13 +150,14 @@ export function publishCuratedEdition(userId: number, input: PublishEditionInput
     const prefs = getNativePreferences(userId);
     for (const id of data.itemIds) {
       if (!canAccessItem(userId, id)) throw new NativeError("item_not_found", 404);
-      const item = db.prepare<[number, number, number], { folder_id: number | null; subscribed: number; muted: number; is_empty_gallery: number }>(
+      const item = db.prepare<[number, number, number], EditionContent & { folder_id: number | null; subscribed: number; muted: number; is_empty_gallery: number }>(
         `SELECT s.folder_id, s.id IS NOT NULL AS subscribed, i.is_empty_gallery,
+          i.title, i.content_snippet, i.content_html, i.full_content_html,
           EXISTS (SELECT 1 FROM user_muted_keywords m WHERE m.user_id = ? AND
             (instr(lower(coalesce(i.title, '')), lower(m.keyword)) > 0 OR instr(lower(coalesce(i.content_snippet, '')), lower(m.keyword)) > 0)) AS muted
          FROM items i LEFT JOIN subscriptions s ON s.feed_id = i.feed_id AND s.user_id = ? WHERE i.id = ?`,
       ).get(userId, userId, id)!;
-      if (item.is_empty_gallery || item.muted || (item.subscribed && (item.folder_id === null ? !prefs.showUnfiled : prefs.hiddenFolderIds.includes(item.folder_id)))) {
+      if (item.is_empty_gallery || !hasEditionText(item) || item.muted || (item.subscribed && (item.folder_id === null ? !prefs.showUnfiled : prefs.hiddenFolderIds.includes(item.folder_id)))) {
         throw new NativeError("item_excluded");
       }
     }
@@ -261,11 +263,11 @@ export function editionCandidates(userId: number, now = new Date(), limit = 200)
   ).all(userId, new Date(now.getTime() - 72 * 3_600_000).toISOString()).flatMap((row) => JSON.parse(row.item_ids) as number[]);
   const previous = new Set(previousItemIds);
   // Fetch bounded candidates per source, so a busy feed cannot hide the others.
-  const rows = db.prepare<[number, number, number, string, string], {
+  const rows = db.prepare<[number, number, number, string, string], EditionContent & {
     id: number; feed_id: number; folder_id: number | null; title: string | null; link: string | null;
     content_snippet: string | null; image_url: string | null; published: string; content_chars: number; source_name: string | null; folder_name: string | null;
   }>(`SELECT r.id, r.feed_id, r.folder_id, r.title, r.link, r.content_snippet, r.image_url,
-        r.source_name, r.folder_name, r.published, r.source_rank,
+        r.source_name, r.folder_name, r.published, r.source_rank, full_item.content_html, full_item.full_content_html,
         length(coalesce(full_item.full_content_html, full_item.content_html, r.content_snippet, '')) AS content_chars
       FROM (
         SELECT i.id, i.feed_id, s.folder_id, i.title, i.link, i.content_snippet, i.image_url,
@@ -283,7 +285,8 @@ export function editionCandidates(userId: number, now = new Date(), limit = 200)
       JOIN items full_item ON full_item.id = r.id
       WHERE r.source_rank <= 40 ORDER BY r.source_rank, r.published DESC, r.id DESC LIMIT 4000`)
     .all(userId, userId, userId, new Date(now.getTime() - 7 * 86_400_000).toISOString(), now.toISOString());
-  const scored: EditionCandidate[] = rows.filter((row) => row.folder_id === null ? prefs.showUnfiled : !prefs.hiddenFolderIds.includes(row.folder_id))
+  const scored: EditionCandidate[] = rows.filter((row) =>
+    (row.folder_id === null ? prefs.showUnfiled : !prefs.hiddenFolderIds.includes(row.folder_id)) && hasEditionText(row))
     .map((row) => ({
       id: row.id, sourceName: row.source_name, folderName: row.folder_name, subscriptionId: row.feed_id, folderId: row.folder_id,
       title: row.title, url: row.link, publishedAt: row.published, snippet: decodeEntities(row.content_snippet) ?? null, imageUrl: row.image_url,
