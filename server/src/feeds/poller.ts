@@ -36,8 +36,14 @@ function mediaAttribute(value: unknown, key: "url" | "medium" | "type"): unknown
   return record[key];
 }
 
-const parser = new Parser<Record<string, unknown>, CustomItem>({
+type CustomFeed = Record<string, unknown> & {
+  icon?: unknown;
+  image?: { url?: unknown };
+};
+
+const parser = new Parser<CustomFeed, CustomItem>({
   customFields: {
+    feed: ["icon"],
     item: [
       ["media:content", "mediaContent", { keepArray: false }],
       ["media:thumbnail", "mediaThumbnail", { keepArray: false }],
@@ -45,6 +51,23 @@ const parser = new Parser<Record<string, unknown>, CustomItem>({
     ],
   },
 });
+
+function extractFeedIconUrls(parsed: CustomFeed | null, baseUrl: string): string[] {
+  if (!parsed) return [];
+  const urls: string[] = [];
+  for (const raw of [parsed.icon, parsed.image?.url]) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    try {
+      const resolved = new URL(raw.trim(), baseUrl);
+      if (resolved.protocol === "https:" || resolved.protocol === "http:") {
+        urls.push(resolved.toString());
+      }
+    } catch {
+      // Ignore malformed feed icon URLs.
+    }
+  }
+  return urls;
+}
 
 function cleanImageUrl(url: string): string {
   return url.trim().replace(/&#038;/g, "&").replace(/&amp;/g, "&");
@@ -144,9 +167,10 @@ async function pollAttempt(feed: Feed, signal: AbortSignal): Promise<PollResult>
     if (iconCheckDue(feed.icon_checked_at)) {
       updateFeedIcon(feed.id, feed.icon_url);
       const siteUrl = parsed?.link || feed.site_url;
-      const urls = siteUrl ? await discoverIconUrls(siteUrl, signal) : [];
+      const htmlUrls = siteUrl ? await discoverIconUrls(siteUrl, signal) : [];
+      const feedUrls = extractFeedIconUrls(parsed, siteUrl || feed.url);
       signal.throwIfAborted();
-      await refreshFeedIcon(feed.id, siteUrl, urls, signal);
+      await refreshFeedIcon(feed.id, siteUrl, [...htmlUrls, ...feedUrls], signal);
     }
   } catch { /* Keep the successful poll; icon failures are best effort. */ }
   return { newItems, error: null };

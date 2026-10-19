@@ -4,6 +4,11 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.28.6] - 2026-10-19
+
+### Fixed
+- Feed icon discovery and validation: fall back to the site's origin root when `<channel><link>` points to the feed path itself, include feed-declared `<icon>` and `<image><url>` elements, probe `/apple-touch-icon.png` before `/favicon.ico`, and reject completely transparent icons so blank 1-bit favicons never overwrite or masquerade as real feed artwork.
+
 ## [0.28.5] - 2026-10-19
 
 ### Fixed

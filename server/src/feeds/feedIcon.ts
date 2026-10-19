@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import zlib from "node:zlib";
 import { Resvg } from "@resvg/resvg-js";
 import { extractLargestImageAsPng } from "@humanwhocodes/ico-to-png";
 import { db } from "../db/index.js";
@@ -49,12 +50,79 @@ function candidates(feed: { icon_url: string | null; site_url: string | null; ur
   if (feed.icon_url) urls.add(feed.icon_url);
   for (const source of [feed.site_url, feed.url]) {
     try {
-      if (source) urls.add(`${new URL(source).origin}/favicon.ico`);
+      if (source) {
+        const origin = new URL(source).origin;
+        urls.add(`${origin}/apple-touch-icon.png`);
+        urls.add(`${origin}/favicon.ico`);
+      }
     } catch {
       // Try the next source.
     }
   }
   return [...urls];
+}
+
+/** Rejects 8-bit grayscale+alpha or RGBA PNGs whose alpha channel is 0 across every pixel. */
+function hasVisiblePngPixels(buffer: Buffer): boolean {
+  if (buffer.length < 33) return false;
+  const width = buffer.readUInt32BE(16);
+  const height = buffer.readUInt32BE(20);
+  const bitDepth = buffer[24];
+  const colorType = buffer[25];
+  const interlace = buffer[28];
+  if (width < 1 || height < 1) return false;
+  if (colorType === 0 || colorType === 2) return true;
+  if (interlace !== 0 || bitDepth !== 8 || (colorType !== 4 && colorType !== 6)) return true;
+
+  const chunks: Buffer[] = [];
+  let pos = 8;
+  while (pos + 8 <= buffer.length) {
+    const len = buffer.readUInt32BE(pos);
+    const type = buffer.toString("ascii", pos + 4, pos + 8);
+    if (pos + 12 + len > buffer.length) break;
+    if (type === "IDAT") chunks.push(buffer.subarray(pos + 8, pos + 8 + len));
+    pos += 12 + len;
+  }
+  if (chunks.length === 0) return true;
+
+  try {
+    const raw = zlib.inflateSync(Buffer.concat(chunks), { finishFlush: zlib.constants.Z_SYNC_FLUSH });
+    const bpp = colorType === 6 ? 4 : 2;
+    const stride = width * bpp + 1;
+    const prev = new Uint8Array(width * bpp);
+    const curr = new Uint8Array(width * bpp);
+    for (let y = 0; y < height; y++) {
+      const rowStart = y * stride;
+      if (rowStart + stride > raw.length) break;
+      const filter = raw[rowStart];
+      for (let i = 0; i < width * bpp; i++) {
+        const x = raw[rowStart + 1 + i];
+        const a = i >= bpp ? curr[i - bpp] : 0;
+        const b = prev[i];
+        const c = i >= bpp ? prev[i - bpp] : 0;
+        let val = x;
+        if (filter === 1) val = (x + a) & 0xff;
+        else if (filter === 2) val = (x + b) & 0xff;
+        else if (filter === 3) val = (x + ((a + b) >> 1)) & 0xff;
+        else if (filter === 4) {
+          const p = a + b - c;
+          const pa = Math.abs(p - a);
+          const pb = Math.abs(p - b);
+          const pc = Math.abs(p - c);
+          const pr = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+          val = (x + pr) & 0xff;
+        }
+        curr[i] = val;
+      }
+      for (let px = bpp - 1; px < width * bpp; px += bpp) {
+        if (curr[px] > 0) return true;
+      }
+      prev.set(curr);
+    }
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 /** Keep the same raster icon in every client, including clients without SVG or ICO support. */
@@ -63,12 +131,16 @@ function rasterIcon(buffer: Buffer, mime: string): { buffer: Buffer; mime: strin
     const svg = new Resvg(buffer, { fitTo: { mode: "width", value: 512 }, font: { loadSystemFonts: false } });
     if (svg.width > 4096 || svg.height > 4096 || svg.width < 1 || svg.height < 1 ||
         svg.width / svg.height > 8 || svg.height / svg.width > 8) throw new Error("Invalid SVG icon size");
-    return { buffer: svg.render().asPng(), mime: "image/png" };
-  }
-  if (mime === "image/x-icon") {
+    buffer = svg.render().asPng();
+    mime = "image/png";
+  } else if (mime === "image/x-icon") {
     const image = extractLargestImageAsPng(buffer);
     if (!image) throw new Error("Invalid ICO icon");
-    return { buffer: Buffer.from(image.data), mime: "image/png" };
+    buffer = Buffer.from(image.data);
+    mime = "image/png";
+  }
+  if (mime === "image/png" && !hasVisiblePngPixels(buffer)) {
+    throw new Error("Blank transparent icon");
   }
   return { buffer, mime };
 }

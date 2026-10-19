@@ -6,6 +6,7 @@ import { Resvg } from "@resvg/resvg-js";
 
 const PNG = new Resvg('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="red"/></svg>').render().asPng();
 const LARGE_PNG = new Resvg('<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="green"/></svg>').render().asPng();
+const BLANK_PNG = new Resvg('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"></svg>').render().asPng();
 const ICO = Buffer.alloc(22 + PNG.length);
 ICO.writeUInt16LE(1, 2);
 ICO.writeUInt16LE(1, 4);
@@ -20,14 +21,22 @@ PNG.copy(ICO, 22);
 test("feed icons are served through this server to people who may see the feed", async () => {
   let svgColor = "red";
   let head = '<link rel="icon" href="/declared.svg">';
+  let feedLinkPath = "/";
+  let feedExtraXml = "";
+  let serveTouchIcon = false;
+  let serveBlankFavicon = false;
   const server = createServer((req, res) => {
     const host = `http://${req.headers.host}`;
     switch (req.url) {
       case "/feed.xml":
         if (req.headers["if-none-match"]) return res.writeHead(304).end();
-        return res.writeHead(200, { "content-type": "application/rss+xml" }).end(`<?xml version="1.0"?><rss version="2.0"><channel><title>Icons</title><link>${host}/</link><item><guid>a</guid><title>One</title></item></channel></rss>`);
+        return res.writeHead(200, { "content-type": "application/rss+xml" }).end(`<?xml version="1.0"?><rss version="2.0"><channel><title>Icons</title><link>${host}${feedLinkPath}</link>${feedExtraXml}<item><guid>a</guid><title>One</title></item></channel></rss>`);
       case "/": return res.writeHead(200, { "content-type": "text/html" }).end(`<html><head>${head}</head></html>`);
       case "/large.png": return res.writeHead(200, { "content-type": "image/png" }).end(LARGE_PNG);
+      case "/apple-touch-icon.png":
+        return serveTouchIcon
+          ? res.writeHead(200, { "content-type": "image/png" }).end(LARGE_PNG)
+          : res.writeHead(404).end();
       case "/app/site.webmanifest": return res.writeHead(200, { "content-type": "application/manifest+json" }).end(JSON.stringify({ icons: [
         { src: "/missing.svg", type: "image/svg+xml", sizes: "any" },
         { src: "../large.png", sizes: "192x192 512x512", purpose: "any maskable" },
@@ -36,7 +45,10 @@ test("feed icons are served through this server to people who may see the feed",
         { sizes: "1024x1024" },
       ] }));
       case "/declared.svg": return res.writeHead(200, { "content-type": "image/svg+xml" }).end(`<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="${svgColor}"/></svg>`);
-      case "/favicon.ico": return res.writeHead(200, { "content-type": "image/x-icon" }).end(ICO);
+      case "/favicon.ico":
+        return serveBlankFavicon
+          ? res.writeHead(200, { "content-type": "image/png" }).end(BLANK_PNG)
+          : res.writeHead(200, { "content-type": "image/x-icon" }).end(ICO);
       case "/page.html": return res.writeHead(200, { "content-type": "text/html" }).end("<html>not an icon</html>");
       default: return res.writeHead(404).end();
     }
@@ -81,6 +93,8 @@ test("feed icons are served through this server to people who may see the feed",
     // A missing SVG falls back to the manifest's large PNG before old and small icons.
     head = '<link rel="icon" href="/favicon.ico" sizes="16x16"><link rel="manifest" href="/app/site.webmanifest">';
     assert.deepEqual(await discoverIconUrls(base), [`${base}/missing.svg`, `${base}/large.png`, `${base}/favicon.ico`]);
+    // Feeds whose <link> points to the feed path itself still discover icons from the origin root.
+    assert.deepEqual(await discoverIconUrls(`${base}/feed.xml`), [`${base}/missing.svg`, `${base}/large.png`, `${base}/favicon.ico`]);
     db.prepare("UPDATE feeds SET icon_checked_at = NULL WHERE id = ?").run(feed.id);
     assert.equal((await pollFeed(findFeedById(feed.id)!)).error, null);
     assert.deepEqual((await loadFeedIcon(feed.id))?.buffer, LARGE_PNG);
@@ -94,6 +108,27 @@ test("feed icons are served through this server to people who may see the feed",
     assert.equal(await refreshFeedIcon(feed.id, null, [`${base}/page.html`]), null);
     assert.equal(getFeedIconHash(feed.id), goodHash);
     assert.deepEqual((await loadFeedIcon(feed.id))?.buffer, LARGE_PNG);
+
+    // Completely transparent icons are rejected, and /apple-touch-icon.png is tried before /favicon.ico.
+    (await import("../src/feeds/feedIcon.js")).clearIconCache();
+    serveBlankFavicon = true;
+    db.prepare("UPDATE feeds SET icon_url = NULL, site_url = ? WHERE id = ?").run(base, feed.id);
+    assert.equal(await loadFeedIcon(feed.id), null);
+    (await import("../src/feeds/feedIcon.js")).clearIconCache();
+    serveTouchIcon = true;
+    assert.deepEqual((await loadFeedIcon(feed.id))?.buffer, LARGE_PNG);
+    serveTouchIcon = false;
+    serveBlankFavicon = false;
+
+    // Feed-declared <icon> elements are used when HTML head tags are absent (e.g. behind a consent wall).
+    head = "";
+    feedLinkPath = "/feed.xml";
+    feedExtraXml = `<icon>${base}/large.png</icon>`;
+    (await import("../src/feeds/feedIcon.js")).clearIconCache();
+    db.prepare("UPDATE feeds SET url = ?, icon_url = NULL, etag = NULL, icon_checked_at = NULL WHERE id = ?").run(`${base}/feed.xml`, feed.id);
+    assert.equal((await pollFeed(findFeedById(feed.id)!)).error, null);
+    assert.deepEqual((await loadFeedIcon(feed.id))?.buffer, LARGE_PNG);
+    assert.equal(findFeedById(feed.id)?.icon_url, `${base}/large.png`);
 
     // Otherwise /favicon.ico is tried; things that are not images are never served.
     db.prepare("UPDATE feeds SET icon_url = ?, site_url = ? WHERE id = ?").run(`${base}/page.html`, base, feed.id);

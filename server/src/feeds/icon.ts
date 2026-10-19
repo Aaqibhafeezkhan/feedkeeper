@@ -72,8 +72,23 @@ export function iconCheckDue(checkedAt: string | null): boolean {
 
 /** Include a linked web-app manifest, which often contains the site's highest-resolution icons. */
 export async function discoverIconUrls(siteUrl: string, signal?: AbortSignal): Promise<string[]> {
+  const discovered = await discoverPageIconUrls(siteUrl, signal);
+  if (discovered.length > 0) return discovered;
+  // Many feeds set `<channel><link>` to their own feed URL instead of the site homepage.
   try {
-    const page = await fetchFeed(siteUrl, { signal });
+    const parsed = new URL(siteUrl);
+    if (parsed.pathname !== "/" && parsed.pathname !== "") {
+      return await discoverPageIconUrls(`${parsed.origin}/`, signal);
+    }
+  } catch {
+    // Ignore invalid URLs.
+  }
+  return [];
+}
+
+async function discoverPageIconUrls(pageUrl: string, signal?: AbortSignal): Promise<string[]> {
+  try {
+    const page = await fetchFeed(pageUrl, { signal });
     const candidates = declaredCandidates(page.body, page.finalUrl);
     const manifestTag = headLinks(page.body).find((tag) => attribute(tag, "rel")?.toLowerCase().split(/\s+/).includes("manifest"));
     const href = manifestTag && attribute(manifestTag, "href");
@@ -99,3 +114,4 @@ export async function discoverIconUrls(siteUrl: string, signal?: AbortSignal): P
     return [];
   }
 }
+
