@@ -64,9 +64,10 @@ const PRODUCT_CARD_CHARACTERS = 220;
 const PRICE = /(?:\d[\d.,]*\s?(?:€|EUR|\$|USD|£|GBP|CHF)|(?:€|\$|£)\s?\d)/;
 const MONTHS = "Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember|January|February|March|June|July|October|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|Jan\\.|Feb\\.";
 const TIME_OF_DAY = "(?:[,\\s•·|-]+\\d{1,2}[:.]\\d{2}(?::\\d{2})?(?:\\s?(?:Uhr|[ap]\\.?m\\.?))?)?";
-/** A whole line that is a date, with or without a time: `15. Oktober 2026, 10:51 Uhr`, `Oct 15, 2026`, `15.10.2026`. */
+const DATE_PREFIX = "(?:(?:stand|zuletzt aktualisiert|aktualisiert(?:\\s+am)?|ver(?:ö|oe)ffentlicht(?:\\s+am)?|erschienen(?:\\s+am)?|updated(?:\\s+on)?|published(?:\\s+on)?|posted(?:\\s+on)?)\\s*[:·|•-]*\\s*)?";
+/** A whole line that is a date, with or without a time or status prefix: `Stand: 19.10.2026 • 14:34 Uhr`, `15. Oktober 2026, 10:51 Uhr`, `Oct 15, 2026`. */
 const DATE_PART = `(?:\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{2,4}|\\d{1,2}\\.?\\s(?:${MONTHS})\\.?\\s\\d{4}|(?:${MONTHS})\\.?\\s\\d{1,2},?\\s\\d{4})`;
-const DATE_ONLY = new RegExp(`^${DATE_PART}${TIME_OF_DAY}$`, "iu");
+const DATE_ONLY = new RegExp(`^${DATE_PREFIX}${DATE_PART}${TIME_OF_DAY}$`, "iu");
 /** The date at the end of a byline (`von Michael Bartl I 15.10.2026 - 11:41`): the author stays, the date is in the reader's head. */
 const BYLINE = /^(von|by|text|autor(in)?|author|written by|words by|story by|report(ed)? by|posted by|photo(s)? by)\b/i;
 const BYLINE_DATE_TAIL = new RegExp(`(?:^|\\s)[|•·–—I-]\\s*${DATE_PART}${TIME_OF_DAY}\\s*$`, "iu");
@@ -92,7 +93,9 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
   let changed = false;
   const drop = (element: Element, rule: string) => {
     if (!element.parentNode) return;
+    const parent = element.parentNode;
     element.remove();
+    pruneEmpty(parent);
     stats[rule] = (stats[rule] ?? 0) + 1;
     changed = true;
   };
@@ -266,7 +269,7 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
   return changed;
 }
 
-const PRESENTATIONAL_TAGS = new Set(["FONT", "BIG", "SMALL", "CENTER", "TT", "U", "STRIKE", "S", "BASEFONT", "BLINK", "NOBR", "SPAN", "MARK"]);
+const PRESENTATIONAL_TAGS = new Set(["FONT", "BIG", "SMALL", "CENTER", "TT", "U", "STRIKE", "S", "BASEFONT", "BLINK", "NOBR", "SPAN", "MARK", "PICTURE"]);
 const PRESENTATIONAL_ATTRIBUTES = ["style", "class", "color", "face", "size", "bgcolor", "align", "valign", "border", "cellpadding",
   "cellspacing", "background", "hspace", "vspace", "nowrap"];
 const SIZED_TAGS = new Set(["IMG", "VIDEO", "CANVAS", "IFRAME", "EMBED", "OBJECT"]);
@@ -293,7 +296,7 @@ function wrapChildren(element: Element, tag: "strong" | "em"): void {
  */
 function removeTypography(root: DocumentFragment, stats: NoiseStats): boolean {
   let changed = false;
-  root.querySelectorAll("style, link[rel~='stylesheet']").forEach(node => { node.remove(); changed = true; });
+  root.querySelectorAll("style, link[rel~='stylesheet'], picture > source").forEach(node => { node.remove(); changed = true; });
   const targets = new Set([...root.querySelectorAll("a[href^='#']")].map(anchor => (anchor.getAttribute("href") ?? "").slice(1)));
   for (const element of [...root.querySelectorAll("*")]) {
     const style = element.getAttribute("style") ?? "";
@@ -480,6 +483,20 @@ function resolveCustomImages(root: DocumentFragment, stats: NoiseStats): boolean
     }
     wrapper.replaceWith(...wrapper.childNodes);
     changed = true;
+  }
+  for (const picture of [...root.querySelectorAll("picture")]) {
+    const image = picture.querySelector("img");
+    if (!image) continue;
+    const current = (image.getAttribute("src") ?? "").trim();
+    if (current && !/^data:/i.test(current)) continue;
+    for (const source of picture.querySelectorAll("source[srcset]")) {
+      const candidate = (source.getAttribute("srcset") ?? "").split(",")[0]?.trim().split(/\s+/)[0] ?? "";
+      if (candidate && !/^data:/i.test(candidate)) {
+        image.setAttribute("src", candidate);
+        changed = true;
+        break;
+      }
+    }
   }
   if (changed) stats["custom-image"] = (stats["custom-image"] ?? 0) + 1;
   return changed;

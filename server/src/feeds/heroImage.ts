@@ -25,9 +25,31 @@ export function imageVariant(raw: string): Variant | null {
   if (widthParam) {
     const rest = new URLSearchParams(url.searchParams);
     for (const name of ["w", "width", "h", "height", "q", "quality", "fit", "dpr"]) rest.delete(name);
-    return { key: `${url.origin}${path}?${rest.toString()}`, width: Number(url.searchParams.get(widthParam)) };
+    const normalizedPath = path
+      .replace(/(?:\/[^/]+)?\/\d{1,4}x\d{1,4}(?:-[a-z0-9]+)?(?=\/[^/]+$)/i, "/_")
+      .replace(/\.(?:webp|jpeg)$/i, ".jpg");
+    return { key: `${url.origin}${normalizedPath}?${rest.toString()}`, width: Number(url.searchParams.get(widthParam)) };
   }
   return null;
+}
+
+/**
+ * Canonical identity of an image across CDN size presets, aspect-ratio crop directories, format extensions and width
+ * query parameters, while keeping origin, non-size directories and picture-identifying query parameters intact.
+ */
+export function comparableImageKey(raw: string | null | undefined, baseUrl?: string | null): string | null {
+  if (!raw) return null;
+  let url: URL;
+  try { url = new URL(decodeEntities(raw.trim()), baseUrl ?? undefined); } catch { return null; }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  url.hash = "";
+  url.pathname = url.pathname
+    .replace(/[-_]\d{2,4}x\d{2,4}(?=\.\w+$)/, "")
+    .replace(/\/\d{1,4}(?=\/[^/]{12,}$)/, "/_")
+    .replace(/(?:\/[^/]+)?\/\d{1,4}x\d{1,4}(?:-[a-z0-9]+)?(?=\/[^/]+$)/i, "/_")
+    .replace(/\.(?:webp|jpeg)$/i, ".jpg");
+  for (const name of ["w", "width", "h", "height", "q", "quality", "fit", "dpr"]) url.searchParams.delete(name);
+  return url.toString();
 }
 
 /** Every image address in the HTML: `src` of images and each entry of a `srcset`. */

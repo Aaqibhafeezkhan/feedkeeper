@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { imageVariant, largerHeroImage } from "../src/feeds/heroImage.js";
+import { comparableImageKey, imageVariant, largerHeroImage } from "../src/feeds/heroImage.js";
 
 const base = "https://images.example.test/2026/10/purchased-11_1791277144_g5wyjVXE__wide__";
 const article = `<figure><picture>
@@ -35,3 +35,14 @@ test("nothing changes without a clearly larger variant of the same picture", () 
   assert.equal(largerHeroImage(`${base}148`, "", null), null);
   assert.equal(largerHeroImage(`${base}148`, "plain text", null), null);
 });
+
+test("comparableImageKey and aspect-ratio crop path variants match across presets and formats", () => {
+  const presetA = "https://images.example.test/images/site/4/gs-squadron-42_6444778.jpg";
+  const presetB = "https://images.example.test/images/site/290/gs-squadron-42_6444778.jpg";
+  assert.equal(comparableImageKey(presetA), comparableImageKey(presetB));
+  const cropSmall = "https://images.example.test/image/id/base/cropA/16x7/photo-238.webp?width=640";
+  const cropLarge = "https://images.example.test/image/id/base/cropB/16x9-big/photo-238.jpg?width=1920";
+  assert.equal(comparableImageKey(cropSmall), comparableImageKey(cropLarge));
+  assert.equal(largerHeroImage(cropSmall, `<img src="${cropLarge}">`, null), cropLarge);
+});
+

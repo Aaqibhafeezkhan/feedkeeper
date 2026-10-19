@@ -4,6 +4,11 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.28.7] - 2026-10-19
+
+### Fixed
+- Reader hero image deduplication and leading dateline cleanup: match aspect-ratio crop path variants (such as `/16x9-big/` vs `/16x7/` or numeric preset directories) across formats (`webp`, `avif`, `jpg`, `png`) when upgrading feed thumbnails, archiving saved articles, and filtering duplicate lead images in reader HTML. Strip `<picture>`/`<source>` wrappers left behind after removing a duplicate hero image, remove orphaned inline captions inside `<p>` that duplicate the removed lead image's `alt` text, and strip standalone prefixed datelines (such as `Stand: 19.10.2026 • 14:34 Uhr`) near the start of an article even when not wrapped in `<time>`.
+
 ## [0.28.6] - 2026-10-19
 
 ### Fixed

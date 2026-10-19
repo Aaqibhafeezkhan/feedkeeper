@@ -11,6 +11,7 @@ import { decodeEntities } from "./text.js";
 import { ImageCache, ImageCacheBusyError, type CachedImage } from "./imageCache.js";
 import { detectImageType } from "./imageTypes.js";
 export { detectImageType } from "./imageTypes.js";
+import { comparableImageKey } from "./heroImage.js";
 
 const MAX_IMAGES_PER_ARTICLE = 30;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -283,11 +284,22 @@ export function withArchivedImages<T extends { id: number; link: string | null; 
     const images = archived.get(item.id);
     if (!images) return item;
     const hero = item.image_url ? resolveImageUrl(item.image_url, item.link) : null;
+    const heroId = hero ? images.get(hero) : undefined;
+    let effectiveImages = images;
+    if (hero && heroId !== undefined) {
+      const heroKey = comparableImageKey(hero);
+      if (heroKey) {
+        effectiveImages = new Map(images);
+        for (const [url] of images) {
+          if (comparableImageKey(url) === heroKey) effectiveImages.set(url, heroId);
+        }
+      }
+    }
     return {
       ...item,
-      image_url: hero && images.has(hero) ? archivedImageUrl(origin, images.get(hero)!, apiBase) : item.image_url,
-      content_html: withContent && item.content_html ? rewriteArchivedImages(item.content_html, item.link, images, origin, apiBase) : item.content_html,
-      full_content_html: withContent && item.full_content_html ? rewriteArchivedImages(item.full_content_html, item.link, images, origin, apiBase) : item.full_content_html,
+      image_url: heroId !== undefined ? archivedImageUrl(origin, heroId, apiBase) : item.image_url,
+      content_html: withContent && item.content_html ? rewriteArchivedImages(item.content_html, item.link, effectiveImages, origin, apiBase) : item.content_html,
+      full_content_html: withContent && item.full_content_html ? rewriteArchivedImages(item.full_content_html, item.link, effectiveImages, origin, apiBase) : item.full_content_html,
     };
   });
 }

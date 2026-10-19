@@ -468,3 +468,16 @@ test("labels left in otherwise empty wrappers after extraction are removed witho
     assert.ok(cleanReaderHtml(html, "Title").includes(label), label);
   }
 });
+
+test("prefixed datelines without <time> and <picture> source wrappers are cleaned near the start", () => {
+  const stats: NoiseStats = {};
+  const html = "<picture><source type=\"image/webp\" srcset=\"https://images.example.test/a/16x9-big/photo.webp?width=640\"><img src=\"https://images.example.test/b/16x7/photo.jpg?width=1280\" alt=\"Photo\"></picture>" +
+    "<p>Stand: 19.10.2026 • 14:34 Uhr</p>" +
+    "<p>Updated: Oct 19, 2026 • 2:34 pm</p>" +
+    BODY;
+  const cleaned = cleanReaderHtml(html, "Title", stats);
+  assert.doesNotMatch(cleaned, /Stand:|Updated:|<picture|<source/);
+  assert.match(cleaned, /<img src="https:\/\/images\.example\.test\/b\/16x7\/photo\.jpg\?width=1280" alt="Photo">/);
+  assert.equal(stats.dateline, 2);
+});
+

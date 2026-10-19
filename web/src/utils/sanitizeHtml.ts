@@ -17,7 +17,9 @@ export function safeHttpUrl(rawUrl: string, baseUrl?: string | null): string | n
 function imageFilename(url: string | null): string {
   if (!url) return "";
   try {
-    return new URL(url).pathname.split("/").filter(Boolean).at(-1)?.toLowerCase() ?? "";
+    return new URL(url).pathname.split("/").filter(Boolean).at(-1)?.toLowerCase()
+      ?.replace(/[-_]\d{2,4}x\d{2,4}(?=\.\w+$)/, "")
+      .replace(/\.(?:webp|jpeg)$/, ".jpg") ?? "";
   } catch {
     return "";
   }
@@ -74,9 +76,16 @@ export function sanitizeHtml(rawHtml: string, options: SanitizeOptions = {}): st
   Array.from(doc.querySelectorAll("img")).forEach((img, index) => {
     const src = safeHttpUrl(img.getAttribute("src") ?? "", options.baseUrl);
     const filename = imageFilename(src);
+    let isArchivedLeadingHero = false;
+    if (index === 0 && heroUrl?.includes("/archive/images/") && src?.includes("/archive/images/")) {
+      const before = doc.createRange();
+      before.selectNodeContents(doc.body);
+      before.setEndBefore(img);
+      isArchivedLeadingHero = !before.toString().trim();
+    }
     const isDuplicateHero = Boolean(
       heroUrl && src &&
-      (src === heroUrl || (heroFilename && filename === heroFilename) || (index === 0 && bodyTextLength < 400)),
+      (src === heroUrl || (heroFilename && filename === heroFilename) || isArchivedLeadingHero || (index === 0 && bodyTextLength < 400)),
     );
     let isRepeatedImage = false;
     if (src && src === previousImageSrc && previousImage) {
@@ -87,7 +96,12 @@ export function sanitizeHtml(rawHtml: string, options: SanitizeOptions = {}): st
     }
 
     if (!src || isPixel(img, src) || isDuplicateHero || isRepeatedImage) {
+      const alt = isDuplicateHero ? img.getAttribute("alt")?.trim() : null;
+      const parentP = img.closest("p");
       img.remove();
+      if (alt && alt.length >= 15 && parentP && parentP.textContent?.trim() === alt && !parentP.querySelector("img")) {
+        parentP.remove();
+      }
     } else {
       img.setAttribute("src", src);
       // Load eagerly: Safari lazy-loads images inside the reader's own scroll area
