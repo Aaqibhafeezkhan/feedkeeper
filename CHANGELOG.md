@@ -4,7 +4,11 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
-## [0.28.4] - 2026-10-18
+## [0.28.5] - 2026-10-19
+
+### Fixed
+- Limit feed count during OPML import: capped at 2,000 feed entries to guard against memory exhaustion and excessive queue pressure when parsing oversized outline files (thanks @yesheng-oss).
+- Clean up React hook dependencies and stale render closures: resolved `react-hooks/exhaustive-deps` linter warnings across web client components, ensuring effects and callbacks track stable references properly (thanks @lb1192176991-lab).
 
 ### Fixed
 - Resolve lazy-loaded images in article extraction: convert `data-lazy-src`, `data-src`, `data-original`, and responsive `data-lazy-srcset` / `data-srcset` attributes into standard `src` and `srcset` attributes before readability extraction. Inline images on WordPress blogs and publishers using client-side lazy loaders are no longer omitted or replaced with empty placeholders.
