@@ -61,6 +61,10 @@ test("offline copies point at article images served through this server", async 
     const odd = { ...stored, image_url: null, content_html: `<img src="${base}/img(1)'a.png">`, full_content_html: null };
     assert.doesNotMatch(archive.withProxiedImages([odd], origin)[0].content_html ?? "", /src="[^"]*[()']/);
 
+    // The proxy refuses vector images, so they keep their original address instead of ending in a 415.
+    const vector = { ...stored, image_url: null, content_html: `<img src="${base}/logo-shape.svg?x=1">`, full_content_html: null };
+    assert.equal(archive.withProxiedImages([vector], origin)[0].content_html, vector.content_html);
+
     // Images already served from the archive are left alone.
     const archived = { ...stored, content_html: `<img src="${origin}/api/archive/images/7">`, image_url: null };
     assert.equal(archive.withProxiedImages([archived], origin)[0].content_html, archived.content_html);

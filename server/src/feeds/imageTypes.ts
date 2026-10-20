@@ -10,3 +10,12 @@ export function detectImageType(data: Uint8Array): ImageType | null {
   if (data.length >= 12 && ascii(4, 8) === "ftyp" && ["avif", "avis"].includes(ascii(8, 12))) return { mime: "image/avif", ext: "avif" };
   return null;
 }
+
+/** Vector images are never served by the image proxy, so their addresses stay as the publisher wrote them. */
+export function isVectorImageUrl(url: string): boolean {
+  try {
+    return new URL(url).pathname.toLowerCase().endsWith(".svg");
+  } catch {
+    return false;
+  }
+}

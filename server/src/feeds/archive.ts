@@ -9,7 +9,7 @@ import { loadFullText } from "./fullText.js";
 import { canAccessItem, findItemById, findItemForUser } from "./repository.js";
 import { decodeEntities } from "./text.js";
 import { ImageCache, ImageCacheBusyError, type CachedImage } from "./imageCache.js";
-import { detectImageType } from "./imageTypes.js";
+import { detectImageType, isVectorImageUrl } from "./imageTypes.js";
 export { detectImageType } from "./imageTypes.js";
 import { comparableImageKey } from "./heroImage.js";
 
@@ -324,7 +324,7 @@ function proxiedImageUrl(origin: string, itemId: number, imageUrl: string, apiBa
 export function withProxiedImages<T extends ImageSource & { id: number }>(items: T[], origin: string, apiBase = "/api", withContent = true): T[] {
   const own = `${origin.replace(/\/$/, "")}/api/`;
   return items.map((item) => {
-    const urls = new Set(itemImageUrls(item).filter((url) => !url.startsWith(own)));
+    const urls = new Set(itemImageUrls(item).filter((url) => !url.startsWith(own) && !isVectorImageUrl(url)));
     if (urls.size === 0) return item;
     const replace = (url: string) => (urls.has(url) ? proxiedImageUrl(origin, item.id, url, apiBase) : undefined);
     const hero = item.image_url ? resolveImageUrl(item.image_url, item.link) : null;
