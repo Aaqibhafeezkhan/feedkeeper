@@ -173,12 +173,17 @@ async function mutableImage(request) {
   } catch { return generation === privateGeneration ? cached ?? Response.error() : Response.error(); }
 }
 
-async function networkFirst(cacheName, request, limit) {
+async function networkFirst(cacheName, request, limit, retried = false) {
   let generation = privateGeneration;
   let cache = await caches.open(cacheName);
   try {
     const response = await withTimeout(fetch(request), NETWORK_TIMEOUT_MS);
-    if (generation !== privateGeneration) throw new Error("session_changed");
+    if (generation !== privateGeneration) {
+      // Parallel requests during a login race with the cache reset. The answer may belong to the old
+      // session, so it is neither cached nor returned; asking again must not look like a lost connection.
+      if (!retried) return await networkFirst(cacheName, request, limit, true);
+      throw new Error("session_changed");
+    }
     if (new URL(request.url).pathname === "/api/auth/me" && generation === privateGeneration) {
       if (response.ok) {
         const user = await response.clone().json();

@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+- Sign-in no longer shows "No connection" on the first load: when several requests were in flight while a login reset the offline cache, the service worker rejected the ones that started earlier and the web app took that for a lost connection. Such requests are now asked again with the new session, and answers from the old session are still never cached.
+
 ## [0.28.7] - 2026-10-19
 
 ### Fixed

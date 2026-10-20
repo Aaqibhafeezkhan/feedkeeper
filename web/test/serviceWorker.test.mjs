@@ -138,15 +138,32 @@ test("late article responses cannot refill the cache after another login", async
   let started;
   const began = new Promise(resolve => { started = resolve; });
   worker.respond(request => {
-    if (request.url.endsWith("/items")) { started(); return new Promise(resolve => { finish = resolve; }); }
+    if (request.url.endsWith("/items") && !finish) { started(); return new Promise(resolve => { finish = resolve; }); }
+    if (request.url.endsWith("/items")) return Promise.resolve(json([{ title: "New article" }]));
     return Promise.resolve(json({ ok: true }));
   });
   const pending = worker.fetch("/api/items");
   await began;
   await worker.fetch("/api/auth/login", "POST");
   finish(json([{ title: "Admin article" }]));
-  await assert.rejects(pending, /session_changed/);
-  assert.equal(await (await worker.storage.open("fk-api")).match("/api/items"), undefined);
+  const answer = await (await pending).json();
+  assert.equal(answer[0].title, "New article", "the old session's answer is dropped and the request is asked again");
+  const cached = await (await worker.storage.open("fk-api")).match("/api/items");
+  assert.equal((await cached.json())[0].title, "New article");
+});
+
+test("parallel session checks during a login do not fail when another one resets the cache", async () => {
+  const worker = await sessionWorker();
+  worker.respond(async () => json({ id: 1 }));
+  await worker.fetch("/api/auth/me");
+  let calls = 0;
+  worker.respond(async () => {
+    const delay = calls++ * 10;
+    await new Promise(resolve => setTimeout(resolve, delay));
+    return json({ id: 2 });
+  });
+  const checks = await Promise.all([worker.fetch("/api/auth/me"), worker.fetch("/api/auth/me"), worker.fetch("/api/auth/me")]);
+  for (const check of checks) assert.equal((await check.json()).id, 2);
 });
 
 test("an expired session and worker upgrades discard personal legacy responses", async () => {
