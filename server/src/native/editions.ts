@@ -276,7 +276,7 @@ export function editionCandidates(userId: number, now = new Date(), limit = 200)
           row_number() OVER (PARTITION BY i.feed_id ORDER BY coalesce(julianday(i.published_at), julianday(i.created_at)) DESC, i.id DESC) AS source_rank
         FROM items i JOIN subscriptions s ON s.feed_id = i.feed_id AND s.user_id = ?
         JOIN feeds f ON f.id = i.feed_id LEFT JOIN folders ON folders.id = s.folder_id
-        WHERE i.is_empty_gallery = 0
+        WHERE i.is_empty_gallery = 0 AND coalesce(i.extraction_status, '') <> 'paywall'
           AND NOT EXISTS (SELECT 1 FROM item_reads r WHERE r.item_id = i.id AND r.user_id = ?)
           AND NOT EXISTS (SELECT 1 FROM user_muted_keywords m WHERE m.user_id = ? AND
             (instr(lower(coalesce(i.title, '')), lower(m.keyword)) > 0 OR instr(lower(coalesce(i.content_snippet, '')), lower(m.keyword)) > 0))

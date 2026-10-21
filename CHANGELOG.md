@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+- Edition candidates: articles already known to sit behind a paywall (their full text could not be fetched for that reason) are no longer offered for editions, whether automatic or curated.
+
 ## [0.28.10] - 2026-10-21
 
 ### Fixed
