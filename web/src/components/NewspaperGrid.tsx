@@ -22,7 +22,7 @@ function EditorialImage({ url, featured }: { url: string | null | undefined; fea
         src={url}
         alt=""
         loading="lazy"
-        className={`w-full object-cover transition-transform duration-300 group-hover:scale-[1.025] ${featured ? "aspect-[16/9]" : "aspect-[3/2]"} ${status === "visible" ? "opacity-100" : "opacity-0"}`}
+        className={`w-full object-cover transition-transform duration-300 group-hover:scale-[1.025] ${featured ? "aspect-[3/2] lg:aspect-[16/9]" : "aspect-[3/2]"} ${status === "visible" ? "opacity-100" : "opacity-0"}`}
         onLoad={(event) => {
           const { naturalWidth, naturalHeight } = event.currentTarget;
           setStatus(naturalWidth >= (featured ? 400 : 160) && naturalHeight >= (featured ? 220 : 100) ? "visible" : "hidden");
@@ -33,6 +33,7 @@ function EditorialImage({ url, featured }: { url: string | null | undefined; fea
   );
 }
 
+/** A feature spans two of the three columns only from `lg` up; below that it is a card like any other, so its look follows the viewport. */
 function EditorialCard({ item, featured, besideFeature, onOpen, onBookmark, onRead }: {
   item: Item;
   featured: boolean;
@@ -57,17 +58,17 @@ function EditorialCard({ item, featured, besideFeature, onOpen, onBookmark, onRe
           onClick={() => onOpen(item)}
         />
         <EditorialImage key={item.image_url ?? ""} url={item.image_url} featured={featured} />
-        <div className={`flex min-w-0 flex-1 flex-col ${featured ? "p-5 sm:p-6" : "p-4 sm:p-5"}`}>
+        <div className={`flex min-w-0 flex-1 flex-col ${featured ? "p-4 sm:p-5 lg:p-6" : "p-4 sm:p-5"}`}>
           <div className="mb-3 flex min-w-0 items-center gap-2 text-xs font-semibold tracking-[0.08em] uppercase text-[var(--c-text-muted)]">
             <Favicon feedId={item.feed_id} iconUrl={item.feed_icon_url} siteUrl={item.feed_site_url} feedUrl={item.feed_url} articleUrl={item.link} className="h-3.5 w-3.5 shrink-0 rounded-xs object-contain" />
             <span className="truncate">{item.feed_title}</span>
           </div>
-          <h2 className={`text-[var(--c-text)] ${featured ? "text-xl leading-tight sm:text-2xl" : "text-lg leading-snug"} font-semibold`}>
+          <h2 className={`text-[var(--c-text)] ${featured ? "text-lg leading-snug lg:text-2xl lg:leading-tight" : "text-lg leading-snug"} font-semibold`}>
             {item.title || item.feed_title}
           </h2>
           <ArticleExcerpt
             item={item}
-            className={`mt-3 text-sm leading-relaxed text-[var(--c-text-muted)] ${featured ? "line-clamp-4" : besideFeature ? "line-clamp-3 lg:line-clamp-12" : "line-clamp-3"}`}
+            className={`mt-3 text-sm leading-relaxed text-[var(--c-text-muted)] ${featured ? "line-clamp-3 lg:line-clamp-4" : besideFeature ? "line-clamp-3 lg:line-clamp-12" : "line-clamp-3"}`}
           />
           <div className="pointer-events-none relative z-20 mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 pt-5 text-xs text-[var(--c-text-muted)]">
             {formattedDate && (
