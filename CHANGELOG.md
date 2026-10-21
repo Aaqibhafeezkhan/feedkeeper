@@ -5,6 +5,7 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 ## [Unreleased]
 
 ### Fixed
+- Feed list: the notification bell next to a feed only shows where the notification setting exists (the installed web app). In a normal browser tab there is no switch for it, so the bell is hidden there to avoid confusion.
 - Edition candidates: articles already known to sit behind a paywall (their full text could not be fetched for that reason) are no longer offered for editions, whether automatic or curated.
 
 ## [0.28.10] - 2026-10-21

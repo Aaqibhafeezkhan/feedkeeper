@@ -199,7 +199,7 @@ export function FeedRow({ feed, editing, refreshing, highlighted = false, folder
             <Link to={`/items?feed=${feed.id}`} draggable={false} className="truncate font-semibold text-[var(--c-text)] hover:underline">
               {name}
             </Link>
-            {feed.notify !== 0 && (
+            {feed.notify !== 0 && pushSupported() && (
               <span
                 className="inline-flex shrink-0 items-center text-[var(--c-text-muted)]"
                 title={t("feeds.notifyActive")}
