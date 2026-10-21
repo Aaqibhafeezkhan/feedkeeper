@@ -4,6 +4,16 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.28.9] - 2026-10-21
+
+### Added
+- Articles load automatically: when you scroll near the end of a list the next page is fetched, with the loading spinner at the end, instead of a "Load more" button. A failed attempt shows a retry button rather than looping.
+- Adding a feed: when a site offers several feeds, titles are shown in full (wrapping onto more lines) and feeds you already subscribe to are listed with a disabled "Already subscribed" button.
+
+### Fixed
+- Newspaper view: below the three-column layout (tablets in portrait, phones) a feature card is no longer larger than the others; its image, headline, text and spacing match the regular cards. On wide screens features look as before.
+- `npm run setup`: the characters typed at the email and name prompts are shown again (raw mode switched the terminal's echo off).
+
 ## [0.28.8] - 2026-10-20
 
 ### Fixed
