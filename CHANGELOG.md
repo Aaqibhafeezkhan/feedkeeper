@@ -4,6 +4,13 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.28.10] - 2026-10-21
+
+### Fixed
+- Feed list: the drag handle for reordering feeds is visible again, also on touch screens where there is no hover, and sits in front of the icon.
+- Reordering feeds on a tablet: dropping a feed no longer risks opening a web search for the dragged text. Only a feed-specific data type is dragged, rows accept the drop, and a drop elsewhere on the page is ignored while dragging. The links in a row can no longer be dragged away by accident.
+- Feeds without an icon show their first letter on a coloured tile in the feed list, in the same colour the apps use for that source.
+
 ## [0.28.9] - 2026-10-21
 
 ### Added
