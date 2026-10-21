@@ -149,6 +149,7 @@ export interface FeedRowProps {
     onDragStart: (event: DragEvent) => void;
     onDragOver: (event: DragEvent) => void;
     onDragEnd: () => void;
+    onDrop: (event: DragEvent) => void;
   };
 }
 
@@ -175,16 +176,17 @@ export function FeedRow({ feed, editing, refreshing, highlighted = false, folder
       onDragStart={drag?.onDragStart}
       onDragOver={drag?.onDragOver}
       onDragEnd={drag?.onDragEnd}
+      onDrop={drag?.onDrop}
       className={`group/feed relative scroll-mt-28 first:rounded-t-xl last:rounded-b-xl transition-[opacity,background-color] duration-700 ${highlighted ? "bg-[var(--c-mobile-nav-active)]" : ""} ${drag?.isDragging ? "opacity-40" : ""} ${drag?.isDragOver ? "shadow-[inset_0_2px_0_var(--c-blue3)]" : ""}`}
     >
       <div className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
         {drag && (
-          <span className="absolute left-0.5 top-[1.4rem] hidden cursor-grab text-[var(--c-text-muted)] opacity-0 transition-opacity group-hover/feed:opacity-60 active:cursor-grabbing sm:block" title={t("feeds.dragHandle")} aria-hidden="true">
+          <span className="-mr-1 flex shrink-0 cursor-grab touch-none text-[var(--c-text-muted)] opacity-50 transition-opacity hover:opacity-100 group-hover/feed:opacity-80 active:cursor-grabbing" title={t("feeds.dragHandle")} aria-hidden="true">
             <GripIcon />
           </span>
         )}
 
-        <Favicon feedId={feed.id} iconUrl={feed.icon_url} siteUrl={feed.site_url} feedUrl={feed.url} className="h-5 w-5 shrink-0 rounded object-contain" />
+        <Favicon feedId={feed.id} iconUrl={feed.icon_url} siteUrl={feed.site_url} feedUrl={feed.url} fallbackName={name} className="h-5 w-5 shrink-0 rounded object-contain text-xs leading-none" />
 
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
@@ -194,7 +196,7 @@ export function FeedRow({ feed, editing, refreshing, highlighted = false, folder
                 title={failing ? t("feeds.statusFailing", { count: feed.consecutive_errors || 1 }) : t("feeds.statusPending")}
               />
             )}
-            <Link to={`/items?feed=${feed.id}`} className="truncate font-semibold text-[var(--c-text)] hover:underline">
+            <Link to={`/items?feed=${feed.id}`} draggable={false} className="truncate font-semibold text-[var(--c-text)] hover:underline">
               {name}
             </Link>
             {feed.notify !== 0 && (
@@ -225,6 +227,7 @@ export function FeedRow({ feed, editing, refreshing, highlighted = false, folder
         {feed.unread_count > 0 && (
           <Link
             to={`/items?feed=${feed.id}`}
+            draggable={false}
             className="shrink-0 rounded-full bg-[var(--c-mobile-nav-active)] px-2.5 py-0.5 text-xs font-semibold tabular-nums text-[var(--c-text)] hover:bg-[var(--c-border)]"
             title={t("feeds.unread", { count: feed.unread_count })}
           >

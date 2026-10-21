@@ -16,7 +16,16 @@ function loadFavicon(url: string): Promise<boolean> {
   return pending;
 }
 
+/** Same stable colour as the apps use for a source without an icon: djb2 over the title picks the hue. */
+function monogramColor(text: string): string {
+  let hash = 5381n;
+  for (const char of text) hash = BigInt.asUintN(64, hash * 33n + BigInt(char.codePointAt(0) ?? 0));
+  return `hsl(${Number(hash % 360n)} 33% 43.5%)`;
+}
+
 interface FaviconProps {
+  /** When given, a feed without an icon shows its first letter on a coloured tile instead of nothing. */
+  fallbackName?: string;
   /** The feed, whose icon this server can deliver; it is kept for offline use. */
   feedId?: number;
   /** Icon declared by the site, discovered by the server; tried before guessing /favicon.ico. */
@@ -27,9 +36,10 @@ interface FaviconProps {
   className: string;
 }
 
-export function Favicon({ feedId, iconUrl, siteUrl, feedUrl, articleUrl, className }: FaviconProps) {
+export function Favicon({ feedId, iconUrl, siteUrl, feedUrl, articleUrl, fallbackName, className }: FaviconProps) {
   const sourceKey = JSON.stringify([feedId, iconUrl, siteUrl, feedUrl, articleUrl]);
   const [loaded, setLoaded] = useState<{ key: string; url: string } | null>(null);
+  const [failedKey, setFailedKey] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +51,7 @@ export function Favicon({ feedId, iconUrl, siteUrl, feedUrl, articleUrl, classNa
         const serverIconUrl = `/api/feeds/${feedId}/icon`;
         if (await loadFavicon(serverIconUrl)) {
           if (!cancelled) setLoaded({ key: sourceKey, url: serverIconUrl });
-        }
+        } else if (!cancelled) setFailedKey(sourceKey);
         return;
       }
 
@@ -65,6 +75,7 @@ export function Favicon({ feedId, iconUrl, siteUrl, feedUrl, articleUrl, classNa
           return;
         }
       }
+      if (!cancelled) setFailedKey(sourceKey);
     }
 
     void findFavicon();
@@ -74,7 +85,16 @@ export function Favicon({ feedId, iconUrl, siteUrl, feedUrl, articleUrl, classNa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceKey]);
 
-  if (!loaded || loaded.key !== sourceKey) return null;
+  if (!loaded || loaded.key !== sourceKey) {
+    if (fallbackName && failedKey === sourceKey) {
+      return (
+        <span aria-hidden="true" className={`${className} inline-grid place-items-center font-semibold text-white`} style={{ backgroundColor: monogramColor(fallbackName), fontSize: "0.58em" }}>
+          {Array.from(fallbackName.trim())[0]?.toUpperCase() ?? "?"}
+        </span>
+      );
+    }
+    return null;
+  }
   return (
     <img
       src={loaded.url}

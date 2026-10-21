@@ -134,6 +134,18 @@ export function FeedsPage() {
   // Reordering only makes sense on the unfiltered list.
   const canReorder = !query && filter !== "failing";
 
+  // While a feed is dragged, a drop outside the rows must not be handled by the browser (it would open a search for the dragged text).
+  useEffect(() => {
+    if (!drag) return;
+    const swallow = (event: Event) => event.preventDefault();
+    window.addEventListener("dragover", swallow);
+    window.addEventListener("drop", swallow);
+    return () => {
+      window.removeEventListener("dragover", swallow);
+      window.removeEventListener("drop", swallow);
+    };
+  }, [drag !== null]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function onDrop() {
     if (!drag || drag.from === drag.over) {
       setDrag(null);
@@ -363,7 +375,8 @@ export function FeedsPage() {
                             isDragOver: drag?.group === group.key && drag.over === index && drag.from !== index,
                             onDragStart: (event) => {
                               event.dataTransfer.effectAllowed = "move";
-                              event.dataTransfer.setData("text/plain", String(feed.id));
+                              // A custom type only: with text/plain a drop that is not handled makes the browser search for the text.
+                              event.dataTransfer.setData("application/x-feedkeeper-feed", String(feed.id));
                               setDrag({ group: group.key, from: index, over: index });
                             },
                             onDragOver: (event) => {
@@ -372,6 +385,7 @@ export function FeedsPage() {
                               if (drag.over !== index) setDrag({ ...drag, over: index });
                             },
                             onDragEnd: () => void onDrop(),
+                            onDrop: (event) => event.preventDefault(),
                           } : undefined}
                         />
                       ))}
