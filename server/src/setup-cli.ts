@@ -49,7 +49,7 @@ stdin.on("data", (chunk: string) => {
     }
     line += char;
     if (masked) stdout.write("*");
-    else if (!isTty) stdout.write(char); // piped input isn't echoed by the terminal itself
+    else stdout.write(char); // raw mode switches the terminal's own echo off, and piped input has none
   }
 });
 
