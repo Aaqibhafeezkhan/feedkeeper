@@ -50,6 +50,7 @@
     "urlPlaceholder": "example.com またはフィードURL",
     "labelPlaceholder": "ラベル(任意)",
     "subscribe": "登録",
+    "subscribed": "登録済みです",
     "subscribing": "登録中…",
     "multipleFeedsFound": "複数のフィードが見つかりました。1つ選択してください:",
     "unsubscribe": "登録解除",

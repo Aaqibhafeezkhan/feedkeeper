@@ -50,6 +50,7 @@
     "urlPlaceholder": "example.com or feed URL",
     "labelPlaceholder": "Label (optional)",
     "subscribe": "Subscribe",
+    "subscribed": "Already subscribed",
     "subscribing": "Subscribing…",
     "multipleFeedsFound": "Multiple feeds found on this page. Please select one:",
     "unsubscribe": "Unsubscribe",

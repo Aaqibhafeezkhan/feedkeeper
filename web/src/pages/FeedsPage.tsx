@@ -287,6 +287,7 @@ export function FeedsPage() {
           folderOptions={folderOptions}
           defaultFolderId={filter.startsWith("folder:") ? Number(filter.slice(7)) : null}
           initialUrl={sharedUrl}
+          subscribedUrls={feeds.map((feed) => feed.url)}
           onClose={() => setPanel(null)}
           onAdded={onFeedAdded}
         />

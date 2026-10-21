@@ -6,11 +6,13 @@ import { CustomSelect, type SelectOption } from "../CustomSelect.tsx";
 import { CloseIcon } from "./icons.tsx";
 
 /** Subscribe by website or feed URL; lets the user pick when a site offers several feeds. */
-export function AddFeedPanel({ folderOptions, defaultFolderId, initialUrl = "", compact = false, onClose, onAdded }: {
+export function AddFeedPanel({ folderOptions, defaultFolderId, initialUrl = "", subscribedUrls = [], compact = false, onClose, onAdded }: {
   folderOptions: SelectOption[];
   defaultFolderId: number | null;
   /** Address to start with, e.g. one shared from another app. */
   initialUrl?: string;
+  /** Feed addresses already subscribed, so a found feed that is one of them cannot be added twice. */
+  subscribedUrls?: string[];
   /** Only the address field and the button, without the card around them (for the welcome card). */
   compact?: boolean;
   onClose: () => void;
@@ -22,6 +24,8 @@ export function AddFeedPanel({ folderOptions, defaultFolderId, initialUrl = "", 
   const [folderId, setFolderId] = useState<number | null>(defaultFolderId);
   const [submitting, setSubmitting] = useState(false);
   const [candidates, setCandidates] = useState<DiscoveredFeed[]>([]);
+
+  const subscribed = new Set(subscribedUrls.map(normalizeFeedUrl));
 
   async function subscribe(targetUrl: string, customLabel: string | null) {
     setSubmitting(true);
@@ -88,20 +92,33 @@ export function AddFeedPanel({ folderOptions, defaultFolderId, initialUrl = "", 
         <div className="flex flex-col gap-2">
           <p className="text-sm text-[var(--c-text-muted)]">{t("feeds.multipleFeedsFound")}</p>
           <ul className="divide-y divide-[var(--c-border)] rounded-xl border border-[var(--c-border)]">
-            {candidates.map((candidate) => (
-              <li key={candidate.url} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{candidate.title ?? candidate.url}</p>
-                  <p className="truncate text-xs text-[var(--c-text-muted)]">{candidate.url}</p>
-                </div>
-                <button type="button" disabled={submitting} onClick={() => subscribe(candidate.url, candidate.title || label.trim() || null)} className="btn-primary shrink-0 px-3 py-1.5 text-xs">
-                  {t("feeds.subscribe")}
-                </button>
-              </li>
-            ))}
+            {candidates.map((candidate) => {
+              const already = subscribed.has(normalizeFeedUrl(candidate.url));
+              return (
+                <li key={candidate.url} className={`flex flex-col gap-2.5 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${already ? "opacity-70" : ""}`}>
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-medium">{candidate.title ?? candidate.url}</p>
+                    <p className="truncate text-xs text-[var(--c-text-muted)]">{candidate.url}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={submitting || already}
+                    onClick={() => subscribe(candidate.url, candidate.title || label.trim() || null)}
+                    className="btn-primary w-full shrink-0 whitespace-nowrap px-3 py-1.5 text-xs sm:w-auto"
+                  >
+                    {already ? t("feeds.subscribed") : t("feeds.subscribe")}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
     </section>
   );
+}
+
+/** Addresses differ in case of the host and a trailing slash only when they are the same feed. */
+function normalizeFeedUrl(url: string): string {
+  return url.trim().replace(/\/+$/, "").toLowerCase();
 }

@@ -50,6 +50,7 @@
     "urlPlaceholder": "beispiel.de oder Feed-URL",
     "labelPlaceholder": "Bezeichnung (optional)",
     "subscribe": "Abonnieren",
+    "subscribed": "Bereits abonniert",
     "subscribing": "Wird abonniert…",
     "multipleFeedsFound": "Mehrere Feeds auf dieser Seite gefunden. Bitte wähle einen aus:",
     "unsubscribe": "Abbestellen",
