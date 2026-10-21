@@ -412,6 +412,20 @@ export function ItemsPage() {
     }
   }
 
+  // The next page loads by itself when the end of the list comes near; a failed attempt waits for the retry button instead of looping.
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const end = endRef.current;
+    if (!end || !hasMore || moreError || loadingMore || loadError) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) void loadMoreRef.current();
+    }, { rootMargin: "600px 0px" });
+    observer.observe(end);
+    return () => observer.disconnect();
+  }, [hasMore, moreError, loadingMore, loadError, items.length]);
+
   useEffect(() => {
     setItems([]);
     setLoading(true);
@@ -1040,14 +1054,15 @@ export function ItemsPage() {
       )}
 
       {!loadError && items.length > 0 && (hasMore || moreError) && (
-        <button
-          type="button"
-          onClick={() => { void loadMore(); }}
-          disabled={loadingMore}
-          className="btn-secondary self-center"
-        >
-          {loadingMore ? t("common.loading") : moreError ? t("common.retry") : t("common.loadMore")}
-        </button>
+        moreError ? (
+          <button type="button" onClick={() => { void loadMore(); }} className="btn-secondary self-center">
+            {t("common.retry")}
+          </button>
+        ) : (
+          <div ref={endRef} className="flex min-h-12 items-center justify-center">
+            {loadingMore && <LoadingSpinner size="sm" />}
+          </div>
+        )
       )}
 
       {/* Modern Slide-over Reader Modal */}
