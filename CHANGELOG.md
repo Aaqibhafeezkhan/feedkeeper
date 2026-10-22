@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+- Feed list: a feed whose last check failed now says why in plain words, for example "The source is not reachable right now (error 503). FeedKeeper tries again automatically." or "The feed was not found (error 404). Its address may have changed.", in English, German and Japanese, instead of the stored code. Refresh messages use the same wording. The stored code itself is unchanged in the API.
+
 ## [0.28.11] - 2026-10-21
 
 ### Fixed

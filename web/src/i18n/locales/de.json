@@ -95,6 +95,16 @@
     "uncategorized": "Ohne Kategorie",
     "moreActions": "Weitere Aktionen",
     "checkedAgo": "{{time}} geprüft",
+    "errors": {
+      "unavailable": "Die Quelle ist gerade nicht erreichbar (Fehler {{status}}). FeedKeeper versucht es automatisch erneut.",
+      "notFound": "Der Feed wurde nicht gefunden (Fehler {{status}}). Möglicherweise hat sich seine Adresse geändert.",
+      "refused": "Die Quelle verweigert den Zugriff (Fehler {{status}}).",
+      "rejected": "Die Quelle hat die Anfrage abgelehnt (Fehler {{status}}).",
+      "limited": "Die Quelle begrenzt die Abrufe. FeedKeeper versucht es später erneut.",
+      "timeout": "Die Quelle hat nicht rechtzeitig geantwortet. FeedKeeper versucht es automatisch erneut.",
+      "network": "Die Quelle war nicht erreichbar. FeedKeeper versucht es automatisch erneut.",
+      "invalidFeed": "Die Antwort ist kein gültiger Feed."
+    },
     "everyInterval": "alle {{interval}}",
     "noMatches": "Keine passenden Feeds gefunden.",
     "feedCount_one": "{{count}} Feed",

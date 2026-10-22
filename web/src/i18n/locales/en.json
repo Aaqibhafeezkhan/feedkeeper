@@ -95,6 +95,16 @@
     "uncategorized": "Uncategorized",
     "moreActions": "More actions",
     "checkedAgo": "checked {{time}}",
+    "errors": {
+      "unavailable": "The source is not reachable right now (error {{status}}). FeedKeeper tries again automatically.",
+      "notFound": "The feed was not found (error {{status}}). Its address may have changed.",
+      "refused": "The source refuses access (error {{status}}).",
+      "rejected": "The source rejected the request (error {{status}}).",
+      "limited": "The source limits requests. FeedKeeper tries again later.",
+      "timeout": "The source did not answer in time. FeedKeeper tries again automatically.",
+      "network": "The source could not be reached. FeedKeeper tries again automatically.",
+      "invalidFeed": "The answer is not a valid feed."
+    },
     "everyInterval": "every {{interval}}",
     "noMatches": "No matching feeds.",
     "feedCount_one": "{{count}} feed",

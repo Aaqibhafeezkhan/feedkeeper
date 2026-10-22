@@ -8,6 +8,7 @@ import { usePlanLimits } from "../../utils/planLimits.ts";
 import { ActionMenu, type ActionMenuItem } from "../ActionMenu.tsx";
 import { CustomSelect, type SelectOption } from "../CustomSelect.tsx";
 import { Favicon } from "../Favicon.tsx";
+import { feedErrorMessage } from "../../utils/feedError.ts";
 import { formatRelativeTime } from "../../utils/relativeTime.ts";
 import { toast } from "../../utils/toast.ts";
 import { AlertIcon, BellIcon, CheckAllIcon, EditIcon, GripIcon, RefreshIcon, TrashIcon } from "./icons.tsx";
@@ -219,7 +220,7 @@ export function FeedRow({ feed, editing, refreshing, highlighted = false, folder
           {failing && (
             <p className="mt-1.5 flex items-start gap-1.5 text-xs text-[var(--c-danger)]" title={feed.last_error ?? undefined}>
               <AlertIcon />
-              <span className="line-clamp-2 break-all">{feed.last_error}</span>
+              <span className="line-clamp-2">{feedErrorMessage(t, feed.last_error ?? "")}</span>
             </p>
           )}
         </div>

@@ -95,6 +95,16 @@
     "uncategorized": "カテゴリなし",
     "moreActions": "その他の操作",
     "checkedAgo": "{{time}}に確認",
+    "errors": {
+      "unavailable": "ソースに現在接続できません（エラー {{status}}）。FeedKeeper が自動的に再試行します。",
+      "notFound": "フィードが見つかりません（エラー {{status}}）。アドレスが変更された可能性があります。",
+      "refused": "ソースがアクセスを拒否しています（エラー {{status}}）。",
+      "rejected": "ソースがリクエストを拒否しました（エラー {{status}}）。",
+      "limited": "ソースがリクエストを制限しています。FeedKeeper が後で再試行します。",
+      "timeout": "ソースが時間内に応答しませんでした。FeedKeeper が自動的に再試行します。",
+      "network": "ソースに接続できませんでした。FeedKeeper が自動的に再試行します。",
+      "invalidFeed": "応答が有効なフィードではありません。"
+    },
     "everyInterval": "{{interval}}ごと",
     "noMatches": "該当するフィードはありません。",
     "feedCount_one": "{{count}} 件のフィード",

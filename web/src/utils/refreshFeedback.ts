@@ -1,9 +1,10 @@
 import type { TFunction } from "i18next";
+import { feedErrorMessage } from "./feedError.ts";
 import { toast } from "./toast.ts";
 
 export function reportFeedRefresh(result: { newItems: number; error: string | null; deferred?: boolean }, title: string, t: TFunction): void {
   if (result.deferred) toast.info(t("feeds.refreshPendingToast", { title }));
-  else if (result.error) toast.error(t("feeds.refreshFailedToast", { title, error: result.error }));
+  else if (result.error) toast.error(t("feeds.refreshFailedToast", { title, error: feedErrorMessage(t, result.error) }));
   else toast.success(t("feeds.refreshedToast", { title, count: result.newItems }));
 }
 
