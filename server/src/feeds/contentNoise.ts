@@ -342,10 +342,16 @@ export function cleanReaderHtml(html: string, title?: string | null, stats: Nois
   const duplicates = collapseAdjacentImages(root, stats);
   const variants = collapseImageVariants(root, stats);
   const videos = resolveVideoPlayers(root, stats);
+  const social = resolveSocialEmbeds(root, stats);
   const noise = removeReaderNoise(root, title, stats, author);
   const typography = removeTypography(root, stats);
   videos.links.forEach(link => { if (root.contains(link)) link.setAttribute("data-media", "video"); });
-  return images || duplicates || variants || videos.changed || noise || typography ? serialize(root) : html;
+  social.links.forEach(({ link, kind, source }) => {
+    if (!root.contains(link)) return;
+    link.setAttribute("data-media", kind);
+    link.setAttribute("data-source", source);
+  });
+  return images || duplicates || variants || videos.changed || social.changed || noise || typography ? serialize(root) : html;
 }
 
 const PLAY_LABEL = /^(video starten|video abspielen|abspielen|wiedergabe( starten)?|play( video)?|watch( video)?|start video)$/i;
@@ -457,6 +463,118 @@ function resolveVideoPlayers(root: DocumentFragment, stats: NoiseStats): { chang
     const replacement = videoLink(video.ownerDocument, source, flat(video.getAttribute("title")) || "Video");
     video.replaceWith(replacement);
     links.push(replacement.querySelector("a") as Element);
+    count();
+  }
+  return { changed, links };
+}
+
+interface SocialPlatform {
+  name: string;
+  host: RegExp;
+  /** The path of a single post, as opposed to a profile or the site's start page. */
+  post: RegExp;
+  kind: "social" | "audio";
+}
+
+const SOCIAL_PLATFORMS: SocialPlatform[] = [
+  { name: "Instagram", host: /^instagram\.com$/, post: /^\/(?:[\w.]+\/)?(?:p|reel|reels|tv)\/[\w-]+/, kind: "social" },
+  { name: "X", host: /^(?:twitter|x)\.com$/, post: /^\/(?:i\/|[\w]+\/)(?:web\/)?status\/\d+/, kind: "social" },
+  { name: "TikTok", host: /^tiktok\.com$/, post: /\/(?:video|photo)\/\d+/, kind: "social" },
+  { name: "Bluesky", host: /^bsky\.app$/, post: /^\/profile\/[^/]+\/post\/[\w]+/, kind: "social" },
+  { name: "Threads", host: /^threads\.(?:net|com)$/, post: /^\/@[\w.]+\/post\/[\w-]+/, kind: "social" },
+  { name: "Reddit", host: /^reddit\.com$/, post: /^\/r\/\w+\/comments\//, kind: "social" },
+  { name: "Facebook", host: /^facebook\.com$/, post: /\/(?:posts|videos|photos|permalink|watch|reel|share)\b|[?&](?:story_fbid|v)=/, kind: "social" },
+  { name: "Spotify", host: /^open\.spotify\.com$/, post: /^\/(?:track|album|playlist|episode|show|artist)\/\w+/, kind: "audio" },
+  { name: "SoundCloud", host: /^soundcloud\.com$/, post: /^\/[^/]+\/[^/]+/, kind: "audio" },
+];
+
+/** Classes of the blockquote placeholders that the platforms' scripts turn into the real post. */
+const SOCIAL_QUOTE = "blockquote.instagram-media, blockquote.twitter-tweet, blockquote.tiktok-embed, blockquote.bluesky-embed, " +
+  "blockquote.reddit-embed-bq, blockquote.text-post-media, blockquote.fb-xfbml-parse-ignore";
+
+function parseAddress(source: string): URL | null {
+  try { return new URL(source.startsWith("//") ? `https:${source}` : source); } catch { return null; }
+}
+
+/** The platform and the address of the single post an address points at, without tracking parameters. */
+function socialPost(source: string): { platform: SocialPlatform; url: string } | null {
+  const address = parseAddress(source.trim());
+  if (!address || !/^https?:$/.test(address.protocol)) return null;
+  const host = address.hostname.replace(/^(?:www|m|mobile)\./, "");
+  const platform = SOCIAL_PLATFORMS.find(candidate => candidate.host.test(host));
+  if (!platform || !platform.post.test(`${address.pathname}${address.search}`)) return null;
+  const keepsQuery = platform.name === "Facebook";
+  return { platform, url: `${address.origin}${address.pathname.replace(/\/embed\/?$/, "/")}${keepsQuery ? address.search : ""}` };
+}
+
+/** The post behind an embed iframe, which usually names it in the path or in a parameter. */
+function socialFrameTarget(source: string): { platform: SocialPlatform; url: string } | null {
+  const address = parseAddress(source.trim());
+  if (!address) return null;
+  const host = address.hostname.replace(/^www\./, "");
+  const find = (name: string) => SOCIAL_PLATFORMS.find(platform => platform.name === name) as SocialPlatform;
+  if (host === "platform.twitter.com" && address.searchParams.get("id")) {
+    return { platform: find("X"), url: `https://x.com/i/status/${address.searchParams.get("id")}` };
+  }
+  if (host === "tiktok.com" && /^\/embed\/(?:v\d\/)?(\d+)/.test(address.pathname)) {
+    return { platform: find("TikTok"), url: `https://www.tiktok.com/video/${/(\d+)/.exec(address.pathname)?.[1]}` };
+  }
+  if (host === "open.spotify.com") return socialPost(source.replace("/embed/", "/"));
+  if (host === "w.soundcloud.com") {
+    const inner = address.searchParams.get("url");
+    return inner ? socialPost(inner) : null;
+  }
+  if (host === "facebook.com" && /\/plugins\/(?:post|video)\.php$/.test(address.pathname)) {
+    const inner = address.searchParams.get("href");
+    return inner ? socialPost(inner) : null;
+  }
+  return socialPost(source);
+}
+
+function excerpt(element: Element): string {
+  const text = flat(element.querySelector("p")?.textContent ?? "");
+  return text.length > 160 ? `${text.slice(0, 157).trimEnd()}…` : text;
+}
+
+/**
+ * Posts of social platforms arrive as a placeholder (`<blockquote class="instagram-media">`, `twitter-tweet`, …) that the
+ * platform's script fills in, or as an iframe. Without the script the placeholder shows its scaffolding: the platform's
+ * logo as a large picture, empty frames and the bar of a quotation. What can be reached stays as one plain link to the
+ * post (`data-media="social"`, or `"audio"` for music and podcast players, with `data-source` naming the platform) and
+ * what cannot is left out. The post itself is never embedded here: that is for the client to decide.
+ */
+function resolveSocialEmbeds(root: DocumentFragment, stats: NoiseStats): { changed: boolean; links: { link: Element; kind: string; source: string }[] } {
+  const links: { link: Element; kind: string; source: string }[] = [];
+  let changed = false;
+  const count = () => { stats["social"] = (stats["social"] ?? 0) + 1; changed = true; };
+
+  for (const quote of [...root.querySelectorAll(SOCIAL_QUOTE)]) {
+    if (!root.contains(quote)) continue;
+    const candidates = [quote.getAttribute("cite") ?? "", ...[...quote.querySelectorAll("a[href]")].map(anchor => anchor.getAttribute("href") ?? "")];
+    // A tweet names its author's profile before the post: the last address that is a post wins.
+    const target = candidates.map(socialPost).filter((found): found is NonNullable<typeof found> => found !== null).pop();
+    const parent = quote.parentNode;
+    if (!target) {
+      quote.remove();
+      pruneEmpty(parent);
+      count();
+      continue;
+    }
+    const replacement = videoLink(quote.ownerDocument, target.url, excerpt(quote) || target.platform.name);
+    quote.replaceWith(replacement);
+    pruneEmpty(parent);
+    links.push({ link: replacement.querySelector("a") as Element, kind: target.platform.kind, source: target.platform.name });
+    count();
+  }
+
+  for (const frame of [...root.querySelectorAll("iframe")]) {
+    const target = socialFrameTarget(frame.getAttribute("src") ?? frame.getAttribute("data-src") ?? "");
+    if (!target) continue;
+    const parent = frame.parentNode;
+    const replacement = videoLink(frame.ownerDocument, target.url, flat(frame.getAttribute("title")) || target.platform.name);
+    frame.replaceWith(replacement);
+    pruneEmpty(parent);
+    links.push({ link: replacement.querySelector("a") as Element, kind: target.platform.kind, source: target.platform.name });
     count();
   }
   return { changed, links };

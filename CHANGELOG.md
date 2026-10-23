@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+- Reader: posts of Instagram, X/Twitter, TikTok, Bluesky, Threads, Reddit and Facebook, and Spotify and SoundCloud players, no longer leave the empty scaffolding of the platform's script (a huge logo, an empty frame, the bar of a quotation) behind. Each becomes one plain link to the post, marked with `data-media="social"` or `"audio"` and `data-source` with the platform's name; a placeholder without a reachable post is left out. Together with the existing `data-media="video"`, the web reader shows all three as a card with an icon and the platform's name.
+
 ## [0.28.12] - 2026-10-22
 
 ### Changed

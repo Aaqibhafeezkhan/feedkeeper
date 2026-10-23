@@ -481,3 +481,22 @@ test("prefixed datelines without <time> and <picture> source wrappers are cleane
   assert.equal(stats.dateline, 2);
 });
 
+
+test("social posts become one marked link to the post, a placeholder without an address goes", () => {
+  const stats: NoiseStats = {};
+  const html = BODY +
+    '<blockquote class="instagram-media" data-instgrm-permalink="x"><div><a href="https://www.instagram.com/p/DAbc_12-x/?utm_source=ig_embed"><svg viewBox="0 0 60 60"><path d="M0 0"/></svg></a></div></blockquote>' +
+    '<blockquote class="twitter-tweet"><p lang="de">Ein kurzer Beitrag über die neue Regel.</p>&mdash; Ministerium (@bmx) <a href="https://twitter.com/bmx">Profil</a> <a href="https://twitter.com/bmx/status/1234567890?ref_src=twsrc">1. November 2026</a></blockquote>' +
+    '<blockquote class="tiktok-embed" cite="https://www.tiktok.com/@user/video/7111111111"><section><a href="https://www.tiktok.com/@user">@user</a></section></blockquote>' +
+    '<blockquote class="instagram-media"><div>Nothing to link here</div></blockquote>' +
+    '<iframe src="https://open.spotify.com/embed/episode/abc123XYZ" title="Folge 12"></iframe>' +
+    '<iframe src="https://platform.twitter.com/embed/Tweet.html?id=987654321"></iframe>';
+  const cleaned = cleanReaderHtml(html, "Title", stats);
+  assert.doesNotMatch(cleaned, /<blockquote|<svg|<iframe/);
+  assert.match(cleaned, /<a href="https:\/\/www\.instagram\.com\/p\/DAbc_12-x\/" data-media="social" data-source="Instagram">Instagram<\/a>/);
+  assert.match(cleaned, /<a href="https:\/\/twitter\.com\/bmx\/status\/1234567890" data-media="social" data-source="X">Ein kurzer Beitrag über die neue Regel\.<\/a>/);
+  assert.match(cleaned, /<a href="https:\/\/www\.tiktok\.com\/@user\/video\/7111111111" data-media="social" data-source="TikTok">TikTok<\/a>/);
+  assert.match(cleaned, /<a href="https:\/\/open\.spotify\.com\/episode\/abc123XYZ" data-media="audio" data-source="Spotify">Folge 12<\/a>/);
+  assert.match(cleaned, /<a href="https:\/\/x\.com\/i\/status\/987654321" data-media="social" data-source="X">X<\/a>/);
+  assert.equal(stats["social"], 6);
+});

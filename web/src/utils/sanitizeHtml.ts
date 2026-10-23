@@ -27,7 +27,8 @@ function imageFilename(url: string | null): string {
 
 const sanitizeConfig = {
   USE_PROFILES: { html: true },
-  ALLOWED_ATTR: ["href", "src", "alt", "title", "width", "height"],
+  // `data-media` and `data-source` are set by the server for videos, social posts and audio players, which show as a card.
+  ALLOWED_ATTR: ["href", "src", "alt", "title", "width", "height", "data-media", "data-source"],
   ALLOW_DATA_ATTR: false,
   FORBID_TAGS: ["form", "input", "button", "textarea", "select", "style", "video", "audio", "source"],
 };
