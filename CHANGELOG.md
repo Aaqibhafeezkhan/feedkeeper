@@ -4,6 +4,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-23
+
 ### Added
 - Mastodon posts embedded as an iframe (`/@user/<id>/embed` on any instance) become a link to the post like the other social platforms.
 - Full-text extraction: an article whose publisher flags it as not free (`isAccessibleForFree: false`) but whose page carries enough text (2,500 characters or more) is now delivered instead of being refused as a paywall, and ends with a link marked `data-media="paywall"` to the original page, which the web reader and the apps show as "Read the full article · paywall". Shorter texts remain paywalled.
@@ -16,6 +18,10 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ### Fixed
 - Full-text extraction: a fetched page lost its videos before the reader could see them, because scripts, frames and `noscript` blocks were removed first and that is where players and consent plugins keep the address. Embeds are now turned into marked links before anything is removed, so YouTube, Vimeo and social posts survive extraction as cards.
+
+### Upgrade notes
+- Articles whose full text was fetched before this version keep their stored text until it is fetched again, so embeds, consent notices and related-article lists in older articles change only when an article is re-extracted.
+- Contributors: the cleanup of embeds now lives in `server/src/feeds/content/`; see `docs/content-rules.md` before adding a rule or a pattern.
 
 ## [0.28.12] - 2026-10-22
 
