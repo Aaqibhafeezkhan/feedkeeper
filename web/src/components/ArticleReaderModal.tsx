@@ -212,10 +212,10 @@ export function ArticleReaderModal({
   const sanitizedContent = useMemo(() => {
     if (!item) return "";
     if (activeContentHtml) {
-      return sanitizeHtml(activeContentHtml, { heroImageUrl, baseUrl: item.link });
+      return sanitizeHtml(activeContentHtml, { heroImageUrl, baseUrl: item.link, paywallLabel: t("reader.paywallRead") });
     }
     return "";
-  }, [item, activeContentHtml, heroImageUrl]);
+  }, [item, activeContentHtml, heroImageUrl, t]);
 
   // Estimated reading time
   const readingTime = useMemo(() => {

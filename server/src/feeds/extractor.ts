@@ -130,6 +130,15 @@ const MAX_REDIRECTS = 5;
 class ArticleHttpError extends Error { constructor(readonly status: number, readonly retryAt: number | undefined, readonly host: string) { super("article_http_error"); } }
 
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
+/** From this many characters of text, a page that calls itself not free still holds the article, and its text is kept. */
+const PAYWALL_TEXT_MIN = 2500;
+
+/** The link at the end of an article whose publisher flags it as behind a paywall; clients show it as a card. */
+function paywallNotice(pageUrl: string): string {
+  const address = new URL(pageUrl);
+  const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  return `<p><a href="${escape(address.href)}" data-media="paywall" data-source="${escape(address.hostname.replace(/^www\./, ""))}">${escape(address.hostname.replace(/^www\./, ""))}</a></p>`;
+}
 
 async function fetchArticleHtml(rawUrl: string, signal: AbortSignal, dispatcher: Agent, fetchImpl: ArticleFetch, ownerSignal: AbortSignal): Promise<{ html: string; url: string } | null> {
   let currentUrl = rawUrl;
@@ -218,6 +227,7 @@ async function extractArticleContent(rawUrl: string, fetchImpl: ArticleFetch, si
 
     const dom = new JSDOM(fetched.html, { url: fetched.url });
     let parsed;
+    let paywalled = false;
     try {
       // The content rules run first: players and consent plugins keep the address of an embed in the very tags removed next.
       cleanPage(dom.window.document);
@@ -227,10 +237,12 @@ async function extractArticleContent(rawUrl: string, fetchImpl: ArticleFetch, si
       resolveLazyImages(dom.window.document);
 
       parsed = new Readability(dom.window.document, { charThreshold: 60 }).parse();
+      paywalled = paywall;
       if (isConsentContent(fetched.url, parsed?.content ?? fetched.html, parsed?.title, parsed?.textContent)) {
         return { status: "consent_wall" };
       }
-      if (paywall || ((parsed?.textContent?.length ?? 0) < 2500 && /(?:subscribe to (?:continue|read)|sign in to (?:continue|read)|abonnieren und weiterlesen|nur für abonnenten|jetzt abonnieren.{0,40}weiterlesen)/i.test(parsed?.textContent ?? ""))) return { status: "paywall" };
+      // Publishers flag a whole article as not free although the page carries its text; enough of it is the article.
+      if ((paywall && (parsed?.textContent?.length ?? 0) < PAYWALL_TEXT_MIN) || ((parsed?.textContent?.length ?? 0) < PAYWALL_TEXT_MIN && /(?:subscribe to (?:continue|read)|sign in to (?:continue|read)|abonnieren und weiterlesen|nur für abonnenten|jetzt abonnieren.{0,40}weiterlesen)/i.test(parsed?.textContent ?? ""))) return { status: "paywall" };
       if (!parsed?.content) return { status: "failed" };
     } finally {
       dom.window.close();
@@ -241,7 +253,7 @@ async function extractArticleContent(rawUrl: string, fetchImpl: ArticleFetch, si
       article: {
         title: parsed.title || null,
         byline: parsed.byline || null,
-        contentHtml: parsed.content,
+        contentHtml: paywalled ? `${parsed.content}${paywallNotice(fetched.url)}` : parsed.content,
         textContent: parsed.textContent || "",
         excerpt: parsed.excerpt || null,
         siteName: parsed.siteName || null,

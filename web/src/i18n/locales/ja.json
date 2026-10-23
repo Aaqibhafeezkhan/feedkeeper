@@ -175,7 +175,8 @@
     "markRead": "既読にする (M)",
     "markUnread": "未読にする (M)",
     "consentWall": "このサイトは Cookie への同意または購読を求めています。フィードのプレビューを表示しています。",
-    "readOriginal": "元のサイトで読む"
+    "readOriginal": "元のサイトで読む",
+    "paywallRead": "記事の全文を読む · 有料"
   },
   "settings": {
     "title": "設定",

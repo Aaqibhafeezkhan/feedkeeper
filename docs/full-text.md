@@ -20,7 +20,7 @@ Start with the defaults. On a small host, use one extraction at a time. Keep hos
 
 The extraction deadline includes admission waiting, fetching and redirects; the HTTP stage also has a 12-second deadline. Parsing runs on the Node event loop, with a 2 MiB HTML limit; a timer cannot interrupt synchronous parsing or the operating system's pending DNS lookup. At most 64 HTTP consumers may wait for article results. They receive an overload response beyond that limit and time out after 30 seconds. A consumer timeout leaves the durable job intact. Concurrent consumers join the same article job; access is checked again before delivery.
 
-Transient failures get at most two additional attempts with exponential backoff and jitter. HTTP 429/503 and valid `Retry-After` values delay the source host. Waiting for a retry uses no worker. Redirects also obey the destination host budget. Paywalls and consent walls keep their existing longer retry policy; shorter extraction results never replace better stored content.
+Transient failures get at most two additional attempts with exponential backoff and jitter. HTTP 429/503 and valid `Retry-After` values delay the source host. Waiting for a retry uses no worker. Redirects also obey the destination host budget. Paywalls and consent walls keep their existing longer retry policy; a page that flags itself as not free but carries 2,500 characters or more of text is delivered with a paywall link at its end instead; shorter extraction results never replace better stored content.
 
 ## Operation
 

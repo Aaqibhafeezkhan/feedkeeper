@@ -175,7 +175,8 @@
     "markRead": "Mark as read (M)",
     "markUnread": "Mark as unread (M)",
     "consentWall": "This site asks for cookie consent or a subscription. You're seeing the preview from the feed.",
-    "readOriginal": "Read on the website"
+    "readOriginal": "Read on the website",
+    "paywallRead": "Read the full article · paywall"
   },
   "settings": {
     "title": "Settings",

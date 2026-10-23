@@ -73,3 +73,16 @@ test("article extraction keeps the video behind a consent plugin and a social po
   assert.match(result.contentHtml, /href="https:\/\/www\.instagram\.com\/p\/DAbc_12-x\/"[^>]*data-media="social"/);
   assert.doesNotMatch(result.contentHtml, /externer Inhalt|<iframe|<script/);
 });
+
+test("an article its publisher flags as not free keeps its text and ends with a paywall link when enough of it is there", async () => {
+  const text = "Ein ausführlicher Absatz, der lang genug ist, damit der Artikel als vollständiger Inhalt erkannt wird und Readability ihn behält. ".repeat(24);
+  const page = (body: string) => `<html><head><script type="application/ld+json">{"isAccessibleForFree": false}</script></head><body><article><h1>Titel</h1>${body}</article></body></html>`;
+  const mockFetch = (html: string): typeof fetch => async () => new Response(html, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
+
+  const long = await extractArticleFromUrl("https://93.184.216.34/article", mockFetch(page(`<p>${text}</p>`)));
+  assert.ok(long, "enough text is delivered");
+  assert.match(long.contentHtml, /<a href="https:\/\/93\.184\.216\.34\/article" data-media="paywall" data-source="93\.184\.216\.34">/);
+
+  const teaser = await extractArticleFromUrl("https://93.184.216.34/article", mockFetch(page("<p>Nur ein kurzer Anriss, der lang genug ist, um als Inhalt zu gelten, aber weit unter der Grenze für einen ganzen Artikel liegt und deshalb als Paywall gilt.</p>")));
+  assert.equal(teaser, null, "a teaser stays a paywall");
+});

@@ -175,7 +175,8 @@
     "markRead": "Als gelesen markieren (M)",
     "markUnread": "Als ungelesen markieren (M)",
     "consentWall": "Diese Seite verlangt eine Cookie-Zustimmung oder ein Abo. Du siehst die Vorschau aus dem Feed.",
-    "readOriginal": "Im Original lesen"
+    "readOriginal": "Im Original lesen",
+    "paywallRead": "Vollständigen Artikel lesen · Paywall"
   },
   "settings": {
     "title": "Einstellungen",

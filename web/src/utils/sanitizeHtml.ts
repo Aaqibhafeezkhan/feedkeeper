@@ -3,6 +3,8 @@ import DOMPurify from "dompurify";
 export interface SanitizeOptions {
   heroImageUrl?: string | null;
   baseUrl?: string | null;
+  /** The words of the link the server puts at the end of an article its publisher flags as behind a paywall. */
+  paywallLabel?: string;
 }
 
 export function safeHttpUrl(rawUrl: string, baseUrl?: string | null): string | null {
@@ -123,6 +125,10 @@ export function sanitizeHtml(rawHtml: string, options: SanitizeOptions = {}): st
       link.removeAttribute("href");
     }
   });
+
+  if (options.paywallLabel) {
+    doc.querySelectorAll('a[data-media="paywall"]').forEach((link) => { link.textContent = options.paywallLabel ?? ""; });
+  }
 
   doc.querySelectorAll("p, div, figure, a").forEach((element) => {
     if (!element.textContent?.trim() && !element.querySelector("img")) element.remove();

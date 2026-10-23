@@ -1,4 +1,4 @@
-import { SOCIAL_PLATFORMS, SOCIAL_QUOTE, type SocialPlatform } from "../data/social-platforms.js";
+import { MASTODON_EMBED_PATH, SOCIAL_PLATFORMS, SOCIAL_QUOTE, type SocialPlatform } from "../data/social-platforms.js";
 import { type ContentRoot, type ContentRule, type NoiseStats, flat, linkParagraph, parseAddress, pruneEmpty } from "../shared.js";
 
 /** The platform and the address of the single post an address points at, without tracking parameters. */
@@ -32,6 +32,9 @@ export function socialFrameTarget(source: string): { platform: SocialPlatform; u
   if (host === "facebook.com" && /\/plugins\/(?:post|video)\.php$/.test(address.pathname)) {
     const inner = address.searchParams.get("href");
     return inner ? socialPost(inner) : null;
+  }
+  if (MASTODON_EMBED_PATH.test(address.pathname) && /^https?:$/.test(address.protocol)) {
+    return { platform: { name: "Mastodon", host: /.*/, post: MASTODON_EMBED_PATH, kind: "social" }, url: `${address.origin}${address.pathname.replace(/\/embed\/?$/, "")}` };
   }
   return socialPost(source);
 }
