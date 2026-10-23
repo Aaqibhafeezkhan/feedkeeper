@@ -341,17 +341,18 @@ export function cleanReaderHtml(html: string, title?: string | null, stats: Nois
   const images = resolveCustomImages(root, stats);
   const duplicates = collapseAdjacentImages(root, stats);
   const variants = collapseImageVariants(root, stats);
+  const consent = resolveConsentEmbeds(root, stats);
   const videos = resolveVideoPlayers(root, stats);
   const social = resolveSocialEmbeds(root, stats);
   const noise = removeReaderNoise(root, title, stats, author);
   const typography = removeTypography(root, stats);
   videos.links.forEach(link => { if (root.contains(link)) link.setAttribute("data-media", "video"); });
-  social.links.forEach(({ link, kind, source }) => {
+  [...consent.links, ...social.links].forEach(({ link, kind, source }) => {
     if (!root.contains(link)) return;
     link.setAttribute("data-media", kind);
     link.setAttribute("data-source", source);
   });
-  return images || duplicates || variants || videos.changed || social.changed || noise || typography ? serialize(root) : html;
+  return images || duplicates || variants || videos.changed || consent.changed || social.changed || noise || typography ? serialize(root) : html;
 }
 
 const PLAY_LABEL = /^(video starten|video abspielen|abspielen|wiedergabe( starten)?|play( video)?|watch( video)?|start video)$/i;
@@ -382,6 +383,12 @@ function embedTarget(source: string): { url: string; name: string } | null {
   const segments = address.pathname.split("/").filter(Boolean);
   if (/^youtube(-nocookie)?\.com$/.test(host) && segments[0] === "embed" && /^[\w-]{6,}$/.test(segments[1] ?? "")) {
     return { url: `https://www.youtube.com/watch?v=${segments[1]}`, name: "YouTube" };
+  }
+  if (/^(?:m\.)?youtube\.com$/.test(host) && segments[0] === "watch" && /^[\w-]{6,}$/.test(address.searchParams.get("v") ?? "")) {
+    return { url: `https://www.youtube.com/watch?v=${address.searchParams.get("v")}`, name: "YouTube" };
+  }
+  if (host === "youtu.be" && /^[\w-]{6,}$/.test(segments[0] ?? "")) {
+    return { url: `https://www.youtube.com/watch?v=${segments[0]}`, name: "YouTube" };
   }
   if (host === "player.vimeo.com" && segments[0] === "video" && /^\d+$/.test(segments[1] ?? "")) {
     return { url: `https://vimeo.com/${segments[1]}`, name: "Vimeo" };
@@ -576,6 +583,70 @@ function resolveSocialEmbeds(root: DocumentFragment, stats: NoiseStats): { chang
     pruneEmpty(parent);
     links.push({ link: replacement.querySelector("a") as Element, kind: target.platform.kind, source: target.platform.name });
     count();
+  }
+  return { changed, links };
+}
+
+/** Wrappers of the consent plugins that hold back an embed until the reader agrees. The embed itself sits inside, escaped. */
+const CONSENT_WRAPPER = ".embed-privacy-container, [data-embed-provider], .cmplz-blocked-content-container, .borlabs-cookie, " +
+  "[data-borlabs-cookie-content], .rcb-content-blocker, [data-rcb-blocker-id]";
+
+function decodeEmbedText(text: string): string {
+  let decoded = text.replace(/\\+\//g, "/");
+  for (let pass = 0; pass < 2; pass++) {
+    decoded = decoded.replace(/&quot;|&#0?34;/g, '"').replace(/&#0?39;|&#x27;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  }
+  return decoded;
+}
+
+/** The text of a wrapper as far as the reader can look into it: attributes, scripts and the contents consent plugins keep encoded. */
+function embedSource(wrapper: Element): string {
+  let source = wrapper.outerHTML;
+  for (const element of [wrapper, ...wrapper.querySelectorAll("*")]) {
+    for (const attribute of [...element.attributes]) {
+      if (!/^data-(?:borlabs-cookie-content|rcb-.*|cmplz-.*)$/.test(attribute.name) || !/^[\w+/=\s]{40,}$/.test(attribute.value)) continue;
+      try { source += ` ${Buffer.from(attribute.value, "base64").toString("utf8")}`; } catch { /* not base64: the plain attributes are searched anyway */ }
+    }
+  }
+  return decodeEmbedText(source);
+}
+
+/**
+ * Consent plugins (Embed Privacy, Borlabs, Complianz, Real Cookie Banner, …) replace an embed with a notice and a
+ * switch, and keep the embed itself in a script or an attribute until the reader agrees. A reader has nobody to ask:
+ * the notice and its legal text are noise, while the video behind them is the content. The address is looked up
+ * wherever it is kept; what is found stays as one marked link, a wrapper with nothing behind it goes. The same
+ * wrapper around a plain WordPress embed block (`wp-block-embed`) only matters when an address can be found.
+ */
+function resolveConsentEmbeds(root: DocumentFragment, stats: NoiseStats): { changed: boolean; links: { link: Element; kind: string; source: string }[] } {
+  const links: { link: Element; kind: string; source: string }[] = [];
+  let changed = false;
+  for (const wrapper of [...root.querySelectorAll(`${CONSENT_WRAPPER}, figure.wp-block-embed`)]) {
+    if (!root.contains(wrapper)) continue;
+    const isConsent = wrapper.matches(CONSENT_WRAPPER);
+    const source = embedSource(wrapper);
+    const addresses = source.match(/(?:https?:)?\/\/[^\s"'<>\\)]+/g) ?? [];
+    let found: { url: string; name: string; kind: string } | null = null;
+    for (const address of addresses) {
+      const video = embedTarget(address);
+      if (video) { found = { ...video, kind: "video" }; break; }
+      const post = socialFrameTarget(address);
+      if (post) { found = { url: post.url, name: post.platform.name, kind: post.platform.kind }; break; }
+    }
+    if (!found && !isConsent) continue;
+    // The title of the embed's own iframe names the video; the plugin's notice would only say "external content".
+    const title = flat(/\btitle="([^"]{1,200})"/.exec(source.slice(Math.max(0, source.indexOf("<iframe"))))?.[1] ?? "");
+    const parent = wrapper.parentNode;
+    if (found) {
+      const replacement = videoLink(wrapper.ownerDocument, found.url, (source.includes("<iframe") ? title : "") || found.name);
+      wrapper.replaceWith(replacement);
+      links.push({ link: replacement.querySelector("a") as Element, kind: found.kind, source: found.name });
+    } else {
+      wrapper.remove();
+    }
+    pruneEmpty(parent);
+    stats["consent-embed"] = (stats["consent-embed"] ?? 0) + 1;
+    changed = true;
   }
   return { changed, links };
 }

@@ -500,3 +500,18 @@ test("social posts become one marked link to the post, a placeholder without an 
   assert.match(cleaned, /<a href="https:\/\/x\.com\/i\/status\/987654321" data-media="social" data-source="X">X<\/a>/);
   assert.equal(stats["social"], 6);
 });
+
+test("an embed held back by a consent plugin becomes a link to its video, the notice and legal text go", () => {
+  const stats: NoiseStats = {};
+  const html = BODY + '<figure class="wp-block-embed is-provider-youtube"><div class="wp-block-embed__wrapper"><div class="embed-privacy-container is-disabled" data-embed-provider="youtube">' +
+    '<button class="embed-privacy-enable screen-reader-text">Display content from YouTube</button><div class="embed-privacy-overlay"><p>An dieser Stelle befindet sich ein externer Inhalt von YouTube.</p>' +
+    '<p>Ich bin damit einverstanden, dass mir dieser externe Inhalt angezeigt wird.</p></div><div class="embed-privacy-content">' +
+    '<script type="pmdelayedscript">var _oembed_x = \'{\\"embed\\":\\"&lt;iframe title=&quot;Vigil&quot; width=&quot;780&quot; src=&quot;https:\\\\/\\\\/www.youtube-nocookie.com\\\\/embed\\\\/Ea1eWarxdxQ?feature=oembed&quot;&gt;&lt;\\\\/iframe&gt;\\"}\';</script></div></div></div></figure>' +
+    '<div class="embed-privacy-container" data-embed-provider="twitter"><p>Externer Inhalt</p></div>' +
+    '<figure class="wp-block-embed"><div class="wp-block-embed__wrapper">https://youtu.be/AbCdEf12345</div></figure>';
+  const cleaned = cleanReaderHtml(html, "Title", stats);
+  assert.match(cleaned, /<a href="https:\/\/www\.youtube\.com\/watch\?v=Ea1eWarxdxQ" data-media="video" data-source="YouTube">Vigil<\/a>/);
+  assert.match(cleaned, /<a href="https:\/\/www\.youtube\.com\/watch\?v=AbCdEf12345" data-media="video" data-source="YouTube">YouTube<\/a>/);
+  assert.doesNotMatch(cleaned, /externer Inhalt|einverstanden|Display content|embed-privacy|Externer Inhalt/i);
+  assert.equal(stats["consent-embed"], 3);
+});

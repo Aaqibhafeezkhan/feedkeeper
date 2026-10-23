@@ -5,6 +5,7 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 ## [Unreleased]
 
 ### Added
+- Reader: videos that a consent plugin holds back (Embed Privacy, Borlabs, Complianz, Real Cookie Banner and similar) no longer leave their notice ("external content … I agree") in the article. The address is looked up wherever the plugin keeps it, in a script, an attribute or encoded content, and the wrapper becomes one marked link to the video; without an address it goes. Plain WordPress embed blocks and `youtu.be` or `watch?v=` addresses are recognised too, and the link takes the embed's own title.
 - Reader: posts of Instagram, X/Twitter, TikTok, Bluesky, Threads, Reddit and Facebook, and Spotify and SoundCloud players, no longer leave the empty scaffolding of the platform's script (a huge logo, an empty frame, the bar of a quotation) behind. Each becomes one plain link to the post, marked with `data-media="social"` or `"audio"` and `data-source` with the platform's name; a placeholder without a reachable post is left out. Together with the existing `data-media="video"`, the web reader shows all three as a card with an icon and the platform's name.
 
 ## [0.28.12] - 2026-10-22
