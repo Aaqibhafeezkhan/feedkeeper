@@ -48,6 +48,7 @@ Feedkeeper is an npm workspace with two packages:
   - `src/db/`: SQLite setup with `better-sqlite3` and incremental migrations (`src/db/migrations/`).
   - `src/feeds/`: Polling scheduler (`poller.ts`), feed parser/fetcher, auto-discovery, SSRF guard, OPML generator/parser, and housekeeping (`cleanup.ts`).
   - `src/api/`: REST endpoints for feeds, items, bookmarks, keyword filters, folders, users, and retention settings.
+  - `src/feeds/content/`: Small rules that turn embeds into links and remove clutter around an article, with pattern lists per language. See [content rules](docs/content-rules.md) for how to add one.
   - `src/feeds/archive.ts`: Keeps saved articles readable by storing their full text and images.
   - `src/mcp/`: Remote Model Context Protocol server exposing tools over Streamable HTTP (`/mcp`).
 - `web/`: Single-page app built with Vite, React, and Tailwind CSS (installable as a PWA).

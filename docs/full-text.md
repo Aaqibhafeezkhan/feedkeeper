@@ -32,6 +32,8 @@ Before upgrading, back up the database and stop the old process. Migration 0033 
 
 ## Page chrome in articles
 
+The rules that clean a page are small and independent; see [content rules](content-rules.md) for how they are organised and how to add one.
+
 Publisher pages put navigation and promotion inside the article body: breadcrumbs, a repeated headline and date line, player labels, consent placeholders for embedded posts, follow prompts, recommendation lists. FeedKeeper removes it in two layers with different rules, and never changes what is stored.
 
 **What a reader shows** (`contentHtml` and `fullTextHtml`) loses only what cannot work in a reader or repeats what the reader already shows: breadcrumbs, in-page jump links, a standalone date line, the headline repeated at the start, separator and media labels, language switchers, consent placeholders of embedded content and verbatim repeats near the start. Credits, disclosures, sponsored and affiliate content and a publisher's own calls to action stay. A source's revenue model is not ours to remove.

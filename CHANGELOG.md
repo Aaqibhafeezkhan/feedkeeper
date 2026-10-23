@@ -4,12 +4,16 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
-### Fixed
-- Full-text extraction: a fetched page lost its videos before the reader could see them, because scripts, frames and `noscript` blocks were removed first and that is where players and consent plugins keep the address. Embeds are now turned into marked links before anything is removed, so YouTube, Vimeo and social posts survive extraction as cards.
-
 ### Added
+- Full-text extraction: lists of other articles inside the article's container ("Popular Stories", "Related articles", "Mehr zum Thema", plugin blocks such as `.yarpp-related`) are removed before the article is picked, so they no longer end up as part of the story.
 - Reader: videos that a consent plugin holds back (Embed Privacy, Borlabs, Complianz, Real Cookie Banner and similar) no longer leave their notice ("external content … I agree") in the article. The address is looked up wherever the plugin keeps it, in a script, an attribute or encoded content, and the wrapper becomes one marked link to the video; without an address it goes. Plain WordPress embed blocks and `youtu.be` or `watch?v=` addresses are recognised too, and the link takes the embed's own title.
 - Reader: posts of Instagram, X/Twitter, TikTok, Bluesky, Threads, Reddit and Facebook, and Spotify and SoundCloud players, no longer leave the empty scaffolding of the platform's script (a huge logo, an empty frame, the bar of a quotation) behind. Each becomes one plain link to the post, marked with `data-media="social"` or `"audio"` and `data-source` with the platform's name; a placeholder without a reachable post is left out. Together with the existing `data-media="video"`, the web reader shows all three as a card with an icon and the platform's name.
+
+### Changed
+- Reader and full-text extraction: the handling of embeds now lives in small content rules with pattern lists per language (`server/src/feeds/content/`), each with fixtures and an automatic idempotency check. How to add a rule or a pattern is described in `docs/content-rules.md`.
+
+### Fixed
+- Full-text extraction: a fetched page lost its videos before the reader could see them, because scripts, frames and `noscript` blocks were removed first and that is where players and consent plugins keep the address. Embeds are now turned into marked links before anything is removed, so YouTube, Vimeo and social posts survive extraction as cards.
 
 ## [0.28.12] - 2026-10-22
 

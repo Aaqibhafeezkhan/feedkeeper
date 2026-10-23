@@ -1,6 +1,6 @@
+import { PLAY_LABEL } from "../data/play-labels/index.js";
 import { type ContentRule, type ContentRoot, type NoiseStats, flat, linkParagraph, parseAddress, pruneEmpty } from "../shared.js";
 
-const PLAY_LABEL = /^(video starten|video abspielen|abspielen|wiedergabe( starten)?|play( video)?|watch( video)?|start video)$/i;
 const PLAY_SOURCE = /(?:^|[/_.-])play[-_]?(?:icon|button|btn)?\.(?:svg|png|webp|gif)(?:[?#]|$)/i;
 const DURATION = /^\d{1,2}:\d{2}(:\d{2})?$/;
 const PLAYER_BLOCK_LIMIT = 120;

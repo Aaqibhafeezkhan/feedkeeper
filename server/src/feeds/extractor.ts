@@ -1,7 +1,7 @@
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import { fetch as undiciFetch } from "undici";
-import { resolveEmbeds } from "./content/embeds/index.js";
+import { cleanPage } from "./content/index.js";
 import { assertPublicHttpUrl, createPublicDispatcher, SsrfBlockedError } from "./ssrfGuard.js";
 import type { Agent } from "undici";
 import { articleWorkPool, ArticleHostBusyError, ArticleAccessDeniedError } from "./articleWorkPool.js";
@@ -219,8 +219,8 @@ async function extractArticleContent(rawUrl: string, fetchImpl: ArticleFetch, si
     const dom = new JSDOM(fetched.html, { url: fetched.url });
     let parsed;
     try {
-      // Players and consent plugins keep the address of an embed in the very tags that are removed next.
-      resolveEmbeds(dom.window.document);
+      // The content rules run first: players and consent plugins keep the address of an embed in the very tags removed next.
+      cleanPage(dom.window.document);
       dom.window.document.querySelectorAll("script, style, svg, iframe, noscript").forEach(element => element.remove());
       const paywall = /"isAccessibleForFree"\s*:\s*(?:false|"false")/i.test(fetched.html);
       cleanConsentDom(dom.window.document);
