@@ -24,7 +24,8 @@ test("content preparation preserves text, tracks failures and synchronizes revis
     requests++;
     if (req.url === "/bot") return res.writeHead(403).end("Forbidden");
     if (req.url === "/consent") return res.end("<html><body><h1>Cookie-Einstellungen</h1><p>Alle Cookies akzeptieren</p></body></html>");
-    const content = req.url === "/short" ? "A legitimate short extracted story. ".repeat(12) : full;
+    // A flagged page with only a teaser is a paywall; with the whole text it is delivered (see extractor.test.ts).
+    const content = req.url === "/short" ? "A legitimate short extracted story. ".repeat(12) : req.url === "/paid" ? "A paid teaser that stops before the story. ".repeat(12) : full;
     const paywall = req.url === "/paid" ? '<script type="application/ld+json">{"isAccessibleForFree":false}</script>' : "";
     return res.writeHead(200, { "content-type": "text/html" }).end("<html><head><title>News</title>" + paywall + "</head><body><article><h1>News</h1><p>" + content + "</p></article></body></html>");
   });
