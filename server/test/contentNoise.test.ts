@@ -521,3 +521,15 @@ test("the marks of a media link survive a second pass over already cleaned HTML"
   assert.match(once, /data-media="social" data-source="X"/);
   assert.equal(cleanReaderHtml(once, "Title"), once);
 });
+
+test("consent notices of other sites go, and an embed kept as base64 in an attribute is found", () => {
+  const encoded = Buffer.from('<blockquote class="instagram-media"><a href="https://www.instagram.com/reel/DezVcSbOXq6/?utm_source=ig_embed">Ein Beitrag</a></blockquote>').toString("base64");
+  const html = BODY +
+    `<div class="embed-wrapper" data-embed-code='${encoded}' data-embed-provider="instagram"><span>Externer Inhalt</span><span>An dieser Stelle befindet sich ein von unserer Redaktion empfohlener Inhalt von Instagram.</span></div>` +
+    '<div><p>Empfohlener redaktioneller Inhalt</p><p>An dieser Stelle finden Sie einen von unseren Redakteuren ausgewählten, externen Inhalt, der den Artikel anreichert.</p>' +
+    '<p>Externen Inhalt anzeigen</p><p>Ich bin damit einverstanden, dass mir der externe Inhalt angezeigt wird. Damit können Daten an Drittplattformen übermittelt werden.</p></div>' +
+    '<div><p>Ein Klick für den Datenschutz</p><p>Für die Darstellung nutzen wir die Software von Datawrapper. Erst wenn Sie hier klicken, werden die Grafiken nachgeladen.</p></div>';
+  const cleaned = cleanReaderHtml(html, "Title");
+  assert.match(cleaned, /href="https:\/\/www\.instagram\.com\/reel\/DezVcSbOXq6\/" data-media="social" data-source="Instagram"/);
+  assert.doesNotMatch(cleaned, /Redakteuren|Datenschutz|Externen? Inhalt|einverstanden|Datawrapper/);
+});

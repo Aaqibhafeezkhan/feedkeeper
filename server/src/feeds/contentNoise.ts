@@ -50,12 +50,17 @@ const LANGUAGE_NAMES = ["English", "Deutsch", "Français", "Español", "Italiano
   "Русский", "日本語", "한국어", "简体字", "繁體字", "简体中文", "繁體中文", "中文", "العربية"];
 
 const CONSENT_ANCHORS = [
-  /^Empfohlener redaktioneller Inhalt\b/i,
+  /^Empfohlene[rn]? redaktionelle[rn]? Inhalte?\b/i,
+  /^Ein Klick für den Datenschutz$/i,
+  /An dieser Stelle (?:finden Sie|befindet sich) einen? .{0,60}externen? Inhalt/i,
+  /Hier findest du externe Inhalte von/i,
   /An dieser Stelle findest du einen externen Inhalt/i,
   /Du kannst ihn dir mit einem Klick anzeigen lassen/i,
 ];
 const CONSENT_COMPANIONS = [
-  /\bInhalte? (von \S+ )?erlauben\b/i, /-Inhalte erlauben\b/i, /^Ich bin damit einverstanden, dass mir .+ angezeigt werden/i,
+  /\bInhalte? (von \S+ )?erlauben\b/i, /-Inhalte erlauben\b/i, /^Ich bin damit einverstanden, dass mir .+ angezeigt (?:wird|werden)/i,
+  /Erst wenn Sie (?:hier )?klicken, werden .{0,60}nachgeladen/i,
+  /^Externen? Inhalt(?:e)? anzeigen$/i, /^Inhalte? (?:ansehen|anzeigen)$/i,
   /Personenbezogene Daten können an Drittplattformen/i, /^Link zum .+-Inhalt$/i, /^Mehr dazu in unserer Datenschutzerklärung/i,
 ];
 
@@ -606,8 +611,10 @@ function embedSource(wrapper: Element): string {
   let source = wrapper.outerHTML;
   for (const element of [wrapper, ...wrapper.querySelectorAll("*")]) {
     for (const attribute of [...element.attributes]) {
-      if (!/^data-(?:borlabs-cookie-content|rcb-.*|cmplz-.*)$/.test(attribute.name) || !/^[\w+/=\s]{40,}$/.test(attribute.value)) continue;
-      try { source += ` ${Buffer.from(attribute.value, "base64").toString("utf8")}`; } catch { /* not base64: the plain attributes are searched anyway */ }
+      if (!/^[A-Za-z0-9+/=\s]{80,}$/.test(attribute.value)) continue;
+      // Plugins keep the embed as base64 in an attribute of their own choosing; only what decodes to markup or an address counts.
+      const decoded = Buffer.from(attribute.value, "base64").toString("utf8");
+      if (/<[a-z]|https?:\/\//i.test(decoded)) source += ` ${decoded}`;
     }
   }
   return decodeEmbedText(source);
