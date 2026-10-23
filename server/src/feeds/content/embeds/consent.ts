@@ -1,4 +1,4 @@
-import { CONSENT_WRAPPER } from "../data/consent/wrappers.js";
+import { CONSENT_WRAPPER } from "../patterns/consent/wrappers.js";
 import { type ContentRoot, type ContentRule, type NoiseStats, count, flat, linkParagraph, pruneEmpty } from "../shared.js";
 import { embedTarget } from "./video.js";
 import { socialFrameTarget } from "./social.js";

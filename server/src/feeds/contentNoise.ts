@@ -1,5 +1,5 @@
 import { JSDOM } from "jsdom";
-import { CONSENT_ANCHORS, CONSENT_COMPANIONS } from "./content/data/consent/index.js";
+import { CONSENT_ANCHORS, CONSENT_COMPANIONS } from "./content/patterns/consent/index.js";
 import { resolveEmbeds } from "./content/embeds/index.js";
 import { type NoiseStats, flat, pruneEmpty } from "./content/shared.js";
 

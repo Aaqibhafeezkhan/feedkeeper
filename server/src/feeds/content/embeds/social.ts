@@ -1,4 +1,4 @@
-import { MASTODON_EMBED_PATH, SOCIAL_PLATFORMS, SOCIAL_QUOTE, type SocialPlatform } from "../data/social-platforms.js";
+import { MASTODON_EMBED_PATH, SOCIAL_PLATFORMS, SOCIAL_QUOTE, type SocialPlatform } from "../patterns/social-platforms.js";
 import { type ContentRoot, type ContentRule, type NoiseStats, flat, linkParagraph, parseAddress, pruneEmpty } from "../shared.js";
 
 /** The platform and the address of the single post an address points at, without tracking parameters. */

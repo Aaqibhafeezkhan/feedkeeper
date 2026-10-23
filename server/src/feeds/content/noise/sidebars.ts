@@ -1,4 +1,4 @@
-import { SIDEBAR_HEADINGS, SIDEBAR_SELECTORS } from "../data/sidebars/index.js";
+import { SIDEBAR_HEADINGS, SIDEBAR_SELECTORS } from "../patterns/sidebars/index.js";
 import { type ContentRoot, type ContentRule, count, flat, pruneEmpty } from "../shared.js";
 
 const HEADINGS = "h2, h3, h4";

@@ -12,7 +12,7 @@ content/
   index.ts               the list of rules and the order they run in
   embeds/                rules that turn embeds into one marked link
   noise/                 rules that remove clutter around the story
-  data/                  patterns, hosts and labels, one file per language where words are involved
+  patterns/              patterns, hosts and labels, one file per language where words are involved
 ```
 
 ## What a rule is
@@ -35,13 +35,13 @@ is ever embedded, and no platform script is loaded.
 
 ## Adding to a list (no code)
 
-Most contributions are a pattern in a data file:
+Most contributions are a pattern in one of the files under `patterns/`:
 
-- A consent notice in another wording: `data/consent/<language>.ts`. Anchors start a notice, companions are its other
+- A consent notice in another wording: `patterns/consent/<language>.ts`. Anchors start a notice, companions are its other
   lines. Match whole sentences or characteristic phrases. A single word such as "privacy" would hit articles about it.
-- A social platform or audio player: `data/social-platforms.ts` (host, path of a single post, kind).
-- A heading or markup that introduces a list of other articles: `data/sidebars/`.
-- The label of a play-button picture: `data/play-labels/`.
+- A social platform or audio player: `patterns/social-platforms.ts` (host, path of a single post, kind).
+- A heading or markup that introduces a list of other articles: `patterns/sidebars/`.
+- The label of a play-button picture: `patterns/play-labels/`.
 
 To support a new language, add a file next to the existing ones and list it in the folder's `index.ts`. Every language
 is searched at once, because an article in one language can sit on a site in another.
