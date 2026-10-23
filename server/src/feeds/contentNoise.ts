@@ -275,10 +275,12 @@ const PRESENTATIONAL_ATTRIBUTES = ["style", "class", "color", "face", "size", "b
 const SIZED_TAGS = new Set(["IMG", "VIDEO", "CANVAS", "IFRAME", "EMBED", "OBJECT"]);
 // Tracking and scripting hooks no client uses. Lazy-load sources stay: they may be an image's only address.
 const LAZY_SOURCES = new Set(["data-src", "data-srcset", "data-lazy-src", "data-original"]);
+// The marks a reader card is made from. Extraction sets them, and the reader's own pass must not take them away again.
+const MEDIA_MARKS = new Set(["data-media", "data-source"]);
 const INERT_ATTRIBUTES = new Set(["role", "tabindex", "itemprop", "itemscope", "itemtype", "itemid", "draggable", "contenteditable"]);
 
 function isInertAttribute(name: string): boolean {
-  if (LAZY_SOURCES.has(name)) return false;
+  if (LAZY_SOURCES.has(name) || MEDIA_MARKS.has(name)) return false;
   return name.startsWith("data-") || name.startsWith("aria-") || name.startsWith("on") || INERT_ATTRIBUTES.has(name);
 }
 const EMPHASIS_EXEMPT = "h1, h2, h3, h4, h5, h6, th, strong, b";

@@ -515,3 +515,9 @@ test("an embed held back by a consent plugin becomes a link to its video, the no
   assert.doesNotMatch(cleaned, /externer Inhalt|einverstanden|Display content|embed-privacy|Externer Inhalt/i);
   assert.equal(stats["consent-embed"], 3);
 });
+
+test("the marks of a media link survive a second pass over already cleaned HTML", () => {
+  const once = cleanReaderHtml(BODY + '<blockquote class="twitter-tweet"><p>Hallo Welt</p><a href="https://x.com/a/status/123">x</a></blockquote>', "Title");
+  assert.match(once, /data-media="social" data-source="X"/);
+  assert.equal(cleanReaderHtml(once, "Title"), once);
+});
