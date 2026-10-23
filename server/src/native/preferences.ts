@@ -8,6 +8,12 @@ const timezone = z.string().max(100).refine((value) => {
   try { new Intl.DateTimeFormat("en", { timeZone: value }); return true; } catch { return false; }
 }, "Use an IANA time zone");
 
+/** Reverse-DNS style names keep clients from overwriting each other's documents. */
+const clientNamespace = z.string().regex(/^[a-z0-9]+([.-][a-z0-9]+)+$/).max(64);
+const CLIENT_DOCUMENT_BYTES = 16 * 1024;
+const clientDocument = z.record(z.string(), z.unknown()).refine((value) => Buffer.byteLength(JSON.stringify(value)) <= CLIENT_DOCUMENT_BYTES, "Document too large");
+const clientSettingsPatch = z.record(clientNamespace, clientDocument.nullable()).refine((value) => Object.keys(value).length <= 8, "Too many namespaces");
+
 export const preferenceFields = {
   timeZone: timezone,
   editionSize: z.number().int().min(1).max(24).nullable(),
@@ -16,6 +22,8 @@ export const preferenceFields = {
   hiddenFolderIds: distinctIds,
   preferredFolderIds: distinctIds,
   showUnfiled: z.boolean(),
+  /** Opaque documents per client namespace; a null document removes the namespace. */
+  clientSettings: clientSettingsPatch,
 };
 export const preferencePatchSchema = z.object(preferenceFields).partial().extend({
   requestId: z.uuid(),
@@ -32,6 +40,7 @@ export interface NativeSettings {
   hiddenFolderIds: number[];
   preferredFolderIds: number[];
   showUnfiled: boolean;
+  clientSettings: Record<string, Record<string, unknown>>;
 }
 export interface NativePreferences extends NativeSettings {
   revision: number;
@@ -40,6 +49,7 @@ export interface NativePreferences extends NativeSettings {
 const defaults: NativeSettings = {
   timeZone: "UTC", editionSize: 24, editionSizeIsCustom: false, readingMinutes: null,
   folderOrder: [], hiddenFolderIds: [], preferredFolderIds: [], showUnfiled: true,
+  clientSettings: {},
 };
 
 export function getNativePreferences(userId: number): NativePreferences {
@@ -52,7 +62,7 @@ export function getNativePreferences(userId: number): NativePreferences {
   return { ...defaults, ...stored, editionSizeIsCustom: stored.editionSizeIsCustom ?? (stored.editionSize != null && stored.editionSize !== 24), revision: row?.revision ?? 0, updatedAt: row?.updated_at ?? null };
 }
 
-export function patchNativePreferences(userId: number, input: { requestId: string; expectedRevision: number } & Omit<Partial<NativeSettings>, "editionSize" | "editionSizeIsCustom"> & { editionSize?: number | null }): NativePreferences {
+export function patchNativePreferences(userId: number, input: { requestId: string; expectedRevision: number } & Omit<Partial<NativeSettings>, "editionSize" | "editionSizeIsCustom" | "clientSettings"> & { editionSize?: number | null; clientSettings?: Record<string, Record<string, unknown> | null> }): NativePreferences {
   const parsed = preferencePatchSchema.safeParse(input);
   if (!parsed.success) throw new NativeError("invalid_input");
   const { requestId, expectedRevision, ...patch } = parsed.data as typeof input;
@@ -62,6 +72,14 @@ export function patchNativePreferences(userId: number, input: { requestId: strin
     const ownedIds = new Set(db.prepare<[number], { id: number }>("SELECT id FROM folders WHERE user_id = ?").all(userId).map((f) => f.id));
     for (const ids of [patch.folderOrder, patch.hiddenFolderIds, patch.preferredFolderIds]) {
       if (ids?.some((id) => id !== null && !ownedIds.has(id))) throw new NativeError("folder_not_found", 404);
+    }
+    if (patch.clientSettings) {
+      const merged: Record<string, Record<string, unknown>> = { ...current.clientSettings };
+      for (const [name, document] of Object.entries(patch.clientSettings)) {
+        if (document === null) delete merged[name]; else merged[name] = document;
+      }
+      if (Object.keys(merged).length > 8) throw new NativeError("invalid_input");
+      (patch as { clientSettings?: unknown }).clientSettings = merged;
     }
     const { revision, updatedAt: _updatedAt, ...settings } = current;
     const next = { ...settings, ...patch, editionSize: patch.editionSize === null ? defaults.editionSize : patch.editionSize ?? current.editionSize,

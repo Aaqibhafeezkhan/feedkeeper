@@ -41,6 +41,7 @@ const FEATURES = [
   "edition.revisions",
   "native-preferences",
   "native-preferences.edition-size",
+  "native-preferences.client-settings",
   "edition.overview",
   "edition.layout",
   "search.fts",

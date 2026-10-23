@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+- App preferences: `clientSettings` stores one opaque JSON document per client namespace (for example `de.example.reader`), so any client can keep its own settings in step across devices without the server learning about them. Documents are limited to 16 KB, an account holds up to 8 namespaces, and a `null` document removes a namespace. Announced as `native-preferences.client-settings` in `/meta`.
+
 ## [0.29.0] - 2026-10-23
 
 ### Added

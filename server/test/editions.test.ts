@@ -246,6 +246,23 @@ test("server editions and app preferences keep devices in step without changing 
     assert.equal(db.prepare("SELECT 1 FROM items WHERE id = ?").get(selected), undefined);
   });
 
+  await t.test("client settings keep opaque documents per namespace without interpreting them", () => {
+    const owner = user();
+    const ns = "de.example.reader";
+    const first = prefs.patchNativePreferences(owner, { requestId: randomUUID(), expectedRevision: 0, clientSettings: { [ns]: { pinned: [1, 2], tabs: null } } });
+    assert.deepEqual(first.clientSettings, { [ns]: { pinned: [1, 2], tabs: null } });
+    const other = prefs.patchNativePreferences(owner, { requestId: randomUUID(), expectedRevision: first.revision, clientSettings: { "org.other.client": { a: 1 } } });
+    assert.deepEqual(Object.keys(other.clientSettings).sort(), [ns, "org.other.client"], "namespaces do not overwrite each other");
+    const invalid = (clientSettings: object) => assert.throws(() => prefs.patchNativePreferences(owner, { requestId: randomUUID(), expectedRevision: other.revision, clientSettings } as never), isError("invalid_input"));
+    invalid({ "Bad Name": {} });
+    invalid({ [ns]: [1] });
+    invalid({ [ns]: { blob: "x".repeat(17 * 1024) } });
+    invalid(Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`org.client${i}.app`, {}])));
+    const removed = prefs.patchNativePreferences(owner, { requestId: randomUUID(), expectedRevision: other.revision, clientSettings: { [ns]: null } });
+    assert.deepEqual(Object.keys(removed.clientSettings), ["org.other.client"]);
+    assert.deepEqual(prefs.getNativePreferences(user()).clientSettings, {});
+  });
+
   await t.test("HTTP contracts, read-only scopes, ordered payloads and conditional deletion", async () => {
     const owner = user(), source = feed(owner), a = article(source), b = article(source);
     const writer = createPersonalAccessToken(owner, "writer", "write").token;
