@@ -55,3 +55,21 @@ test("article extraction resolves WordPress lazy-loaded images to src", async ()
   assert.ok(result.contentHtml.includes('src="https://www.mimikama.org/wp-content/uploads/2026/10/real-image.png"'));
   assert.ok(!result.contentHtml.includes('src="data:image/svg'));
 });
+
+test("article extraction keeps the video behind a consent plugin and a social post as a marked link", async () => {
+  const text = "Ein ausführlicher Absatz, der lang genug ist, damit der Artikel als vollständiger Inhalt erkannt wird und Readability ihn behält. ".repeat(4);
+  const html = `<html><head><script>window.x = 1;</script></head><body><article><h1>Titel</h1><p>${text}</p>` +
+    '<figure class="wp-block-embed"><div class="embed-privacy-container" data-embed-provider="youtube"><p>An dieser Stelle befindet sich ein externer Inhalt von YouTube.</p>' +
+    '<div class="embed-privacy-content"><script type="pmdelayedscript">var _e = \'{\\"embed\\":\\"&lt;iframe title=&quot;Vigil&quot; src=&quot;https:\\\\/\\\\/www.youtube-nocookie.com\\\\/embed\\\\/Ea1eWarxdxQ&quot;&gt;&lt;\\\\/iframe&gt;\\"}\';</script></div></div></figure>' +
+    `<p>${text}</p><iframe src="https://www.youtube.com/embed/AbCdEf12345" title="Trailer"></iframe>` +
+    '<blockquote class="instagram-media"><a href="https://www.instagram.com/p/DAbc_12-x/?utm_source=ig_embed">Post</a></blockquote>' +
+    `<p>${text}</p></article></body></html>`;
+  const mockFetch: typeof fetch = async () => new Response(html, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
+
+  const result = await extractArticleFromUrl("https://93.184.216.34/article", mockFetch);
+  assert.ok(result);
+  assert.match(result.contentHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=Ea1eWarxdxQ"[^>]*data-media="video"/);
+  assert.match(result.contentHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=AbCdEf12345"[^>]*data-media="video"/);
+  assert.match(result.contentHtml, /href="https:\/\/www\.instagram\.com\/p\/DAbc_12-x\/"[^>]*data-media="social"/);
+  assert.doesNotMatch(result.contentHtml, /externer Inhalt|<iframe|<script/);
+});

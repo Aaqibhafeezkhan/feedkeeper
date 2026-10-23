@@ -1,6 +1,7 @@
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import { fetch as undiciFetch } from "undici";
+import { resolveEmbeds } from "./contentNoise.js";
 import { assertPublicHttpUrl, createPublicDispatcher, SsrfBlockedError } from "./ssrfGuard.js";
 import type { Agent } from "undici";
 import { articleWorkPool, ArticleHostBusyError, ArticleAccessDeniedError } from "./articleWorkPool.js";
@@ -130,15 +131,6 @@ class ArticleHttpError extends Error { constructor(readonly status: number, read
 
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
 
-function stripHeavyTags(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
-    .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, "")
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
-    .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, "");
-}
-
 async function fetchArticleHtml(rawUrl: string, signal: AbortSignal, dispatcher: Agent, fetchImpl: ArticleFetch, ownerSignal: AbortSignal): Promise<{ html: string; url: string } | null> {
   let currentUrl = rawUrl;
 
@@ -224,10 +216,12 @@ async function extractArticleContent(rawUrl: string, fetchImpl: ArticleFetch, si
     const fetched = await fetchArticleHtml(rawUrl, AbortSignal.any([signal, controller.signal]), dispatcher, fetchImpl, signal);
     if (!fetched) return { status: "failed" };
 
-    const cleanedHtml = stripHeavyTags(fetched.html);
-    const dom = new JSDOM(cleanedHtml, { url: fetched.url });
+    const dom = new JSDOM(fetched.html, { url: fetched.url });
     let parsed;
     try {
+      // Players and consent plugins keep the address of an embed in the very tags that are removed next.
+      resolveEmbeds(dom.window.document);
+      dom.window.document.querySelectorAll("script, style, svg, iframe, noscript").forEach(element => element.remove());
       const paywall = /"isAccessibleForFree"\s*:\s*(?:false|"false")/i.test(fetched.html);
       cleanConsentDom(dom.window.document);
       resolveLazyImages(dom.window.document);

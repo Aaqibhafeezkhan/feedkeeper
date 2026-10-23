@@ -414,7 +414,7 @@ function videoLink(document: Document, url: string, text: string): Element {
  * that the target is a video page); what cannot, because the player is a script-driven button without an address,
  * is left out. The video itself is never embedded here: that is for the client to decide.
  */
-function resolveVideoPlayers(root: DocumentFragment, stats: NoiseStats): { changed: boolean; links: Element[] } {
+function resolveVideoPlayers(root: Document | DocumentFragment, stats: NoiseStats): { changed: boolean; links: Element[] } {
   const links: Element[] = [];
   let changed = false;
   const count = () => { stats["video"] = (stats["video"] ?? 0) + 1; changed = true; };
@@ -550,7 +550,7 @@ function excerpt(element: Element): string {
  * post (`data-media="social"`, or `"audio"` for music and podcast players, with `data-source` naming the platform) and
  * what cannot is left out. The post itself is never embedded here: that is for the client to decide.
  */
-function resolveSocialEmbeds(root: DocumentFragment, stats: NoiseStats): { changed: boolean; links: { link: Element; kind: string; source: string }[] } {
+function resolveSocialEmbeds(root: Document | DocumentFragment, stats: NoiseStats): { changed: boolean; links: { link: Element; kind: string; source: string }[] } {
   const links: { link: Element; kind: string; source: string }[] = [];
   let changed = false;
   const count = () => { stats["social"] = (stats["social"] ?? 0) + 1; changed = true; };
@@ -618,7 +618,7 @@ function embedSource(wrapper: Element): string {
  * wherever it is kept; what is found stays as one marked link, a wrapper with nothing behind it goes. The same
  * wrapper around a plain WordPress embed block (`wp-block-embed`) only matters when an address can be found.
  */
-function resolveConsentEmbeds(root: DocumentFragment, stats: NoiseStats): { changed: boolean; links: { link: Element; kind: string; source: string }[] } {
+function resolveConsentEmbeds(root: Document | DocumentFragment, stats: NoiseStats): { changed: boolean; links: { link: Element; kind: string; source: string }[] } {
   const links: { link: Element; kind: string; source: string }[] = [];
   let changed = false;
   for (const wrapper of [...root.querySelectorAll(`${CONSENT_WRAPPER}, figure.wp-block-embed`)]) {
@@ -649,6 +649,22 @@ function resolveConsentEmbeds(root: DocumentFragment, stats: NoiseStats): { chan
     changed = true;
   }
   return { changed, links };
+}
+
+/**
+ * Turns every embed of a page into the marked link a reader shows as a card. A fetched page must go through this
+ * before its scripts, frames and `noscript` blocks are removed: that is where consent plugins and players keep the address.
+ */
+export function resolveEmbeds(root: Document | DocumentFragment, stats: NoiseStats = {}): boolean {
+  const consent = resolveConsentEmbeds(root, stats);
+  const videos = resolveVideoPlayers(root, stats);
+  const social = resolveSocialEmbeds(root, stats);
+  videos.links.forEach(link => link.setAttribute("data-media", "video"));
+  [...consent.links, ...social.links].forEach(({ link, kind, source }) => {
+    link.setAttribute("data-media", kind);
+    link.setAttribute("data-source", source);
+  });
+  return consent.changed || videos.changed || social.changed;
 }
 
 /**
