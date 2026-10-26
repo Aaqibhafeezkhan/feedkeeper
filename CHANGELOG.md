@@ -4,6 +4,11 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-10-26
+
+### Changed
+- Dependencies: updated React and React DOM to 19.3.1, Vite to 8.3.5, `@vitejs/plugin-react` to 6.1.2, and ESLint to 10.13.0.
+
 ## [0.30.0] - 2026-10-23
 
 ### Added
@@ -616,7 +621,18 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.28.4...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.30.1...HEAD
+[0.30.1]: https://github.com/visualfusion/feedkeeper/compare/v0.30.0...v0.30.1
+[0.30.0]: https://github.com/visualfusion/feedkeeper/compare/v0.29.0...v0.30.0
+[0.29.0]: https://github.com/visualfusion/feedkeeper/compare/v0.28.12...v0.29.0
+[0.28.12]: https://github.com/visualfusion/feedkeeper/compare/v0.28.11...v0.28.12
+[0.28.11]: https://github.com/visualfusion/feedkeeper/compare/v0.28.10...v0.28.11
+[0.28.10]: https://github.com/visualfusion/feedkeeper/compare/v0.28.9...v0.28.10
+[0.28.9]: https://github.com/visualfusion/feedkeeper/compare/v0.28.8...v0.28.9
+[0.28.8]: https://github.com/visualfusion/feedkeeper/compare/v0.28.7...v0.28.8
+[0.28.7]: https://github.com/visualfusion/feedkeeper/compare/v0.28.6...v0.28.7
+[0.28.6]: https://github.com/visualfusion/feedkeeper/compare/v0.28.5...v0.28.6
+[0.28.5]: https://github.com/visualfusion/feedkeeper/compare/v0.28.4...v0.28.5
 [0.28.4]: https://github.com/visualfusion/feedkeeper/compare/v0.28.3...v0.28.4
 [0.28.3]: https://github.com/visualfusion/feedkeeper/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/visualfusion/feedkeeper/compare/v0.28.1...v0.28.2
