@@ -4,6 +4,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-10-27
+
 ### Added
 - Native API: apps can read and change the profile of the signed-in account with their token. `PATCH /api/v1/me` changes the display name, `GET`, `PUT` and `DELETE /api/v1/me/avatar` read, set and remove the profile photo, and `GET /api/v1/me` returns `avatarUpdatedAt` as the version of the photo. Name and photo are the same as in the web app. Announced as `account-profile` in `/meta`; changes need a token with write scope.
 
@@ -627,7 +629,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.30.1...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/visualfusion/feedkeeper/compare/v0.30.1...v0.31.0
 [0.30.1]: https://github.com/visualfusion/feedkeeper/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/visualfusion/feedkeeper/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/visualfusion/feedkeeper/compare/v0.28.12...v0.29.0
