@@ -4,6 +4,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-10-27
+
 ### Added
 - Blocked sources: `BLOCKED_FEED_HOSTS` lists domains (subdomains included) that the server never subscribes to, polls or fetches articles and images from. Feeds already stored for them stop updating and lose their articles, except saved ones, ones with notes and ones in a published edition; their subscriptions stay with the error `feed_blocked`. Subscribing to a blocked source answers `feed_blocked` with "This source is not available on this server."
 - Hosts that embed the server can add their own list at runtime with `setBlockedHostsProvider`, and apply it to stored feeds with `purgeBlockedFeeds`.
@@ -636,7 +638,8 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 First public release: an RSS and Atom reader with a remote MCP server, multi-user accounts, a trilingual interface (English, German, Japanese), SSRF-guarded feed fetching and a single-file SQLite database.
 
-[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/visualfusion/feedkeeper/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/visualfusion/feedkeeper/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/visualfusion/feedkeeper/compare/v0.30.1...v0.31.0
 [0.30.1]: https://github.com/visualfusion/feedkeeper/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/visualfusion/feedkeeper/compare/v0.29.0...v0.30.0
