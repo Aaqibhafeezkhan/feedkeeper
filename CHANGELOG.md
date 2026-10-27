@@ -4,6 +4,12 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+- Native API: apps can read and change the profile of the signed-in account with their token. `PATCH /api/v1/me` changes the display name, `GET`, `PUT` and `DELETE /api/v1/me/avatar` read, set and remove the profile photo, and `GET /api/v1/me` returns `avatarUpdatedAt` as the version of the photo. Name and photo are the same as in the web app. Announced as `account-profile` in `/meta`; changes need a token with write scope.
+
+### Upgrade notes
+- No action is needed. Clients that do not know the new feature ignore it.
+
 ## [0.30.1] - 2026-10-26
 
 ### Changed

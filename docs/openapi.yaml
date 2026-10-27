@@ -89,16 +89,69 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [id, email, displayName, role, scope, deviceId, capabilities]
-                properties:
-                  id: { type: integer }
-                  email: { type: string }
-                  displayName: { type: string }
-                  role: { type: string, enum: [admin, user] }
-                  scope: { type: string, enum: [read, write] }
-                  deviceId: { type: [integer, "null"] }
-                  capabilities: { $ref: "#/components/schemas/AccountCapabilities" }
+                $ref: "#/components/schemas/Me"
         "401": { $ref: "#/components/responses/Unauthorized" }
+    patch:
+      tags: [Devices]
+      summary: Change the display name
+      description: Announced as `account-profile` in `/meta.features`. Needs a token with write scope. Answers with the profile as `GET /me` does.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName: { type: string, minLength: 1, maxLength: 100, description: Trimmed; must not be empty afterwards }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        "400": { $ref: "#/components/responses/Invalid" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ReadOnly" }
+  /me/avatar:
+    get:
+      tags: [Devices]
+      summary: The profile photo
+      description: |
+        JPEG, PNG or WebP as it was stored. Clients add `avatarUpdatedAt` from `GET /me` to the
+        URL (`?v=`), so the response can be cached indefinitely and a changed photo is fetched again.
+      responses:
+        "200":
+          description: The photo
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: The account has no photo }
+    put:
+      tags: [Devices]
+      summary: Set the profile photo
+      description: |
+        Announced as `account-profile` in `/meta.features`. Needs a token with write scope. The body is the
+        image itself, at most 512 KB. The type is detected from the file signature, not from `Content-Type`.
+        Clients should crop to a square and scale down (the web app uses 256 × 256 JPEG) before uploading.
+      requestBody:
+        required: true
+        content:
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        "400": { description: The body is not a JPEG, PNG or WebP image, content: { application/json: { schema: { type: object, properties: { error: { type: string, const: invalid_image } } } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ReadOnly" }
+        "413": { description: The image is larger than 512 KB }
+    delete:
+      tags: [Devices]
+      summary: Remove the profile photo
+      description: Needs a token with write scope. Answers with the profile as `GET /me` does.
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ReadOnly" }
   /devices:
     get:
       tags: [Devices]
@@ -736,6 +789,18 @@ components:
                 properties:
                   error: { type: string, const: read_only_token }
   schemas:
+    Me:
+      type: object
+      required: [id, email, displayName, avatarUpdatedAt, role, scope, deviceId, capabilities]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        displayName: { type: string }
+        avatarUpdatedAt: { type: [string, "null"], description: "When the profile photo was last set; null without a photo. Use it as the cache key of `/me/avatar`." }
+        role: { type: string, enum: [admin, user] }
+        scope: { type: string, enum: [read, write] }
+        deviceId: { type: [integer, "null"] }
+        capabilities: { $ref: "#/components/schemas/AccountCapabilities" }
     AccountCapabilities:
       type: object
       required: [type, features, manageUrl]

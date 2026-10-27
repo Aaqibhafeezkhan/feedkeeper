@@ -1,10 +1,13 @@
-import { Router } from "express";
+import express, { Router } from "express";
+import type { Request } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
+import { AVATAR_MAX_BYTES, detectAvatarType } from "../../auth/avatar.js";
 import { createPairingCode, redeemPairingCode } from "../../auth/pairing.js";
 import { requireSession, requireSessionOrDevice } from "../../auth/middleware.js";
 import { deleteDevice, listDevicesForUser } from "../../auth/tokens.js";
-import { findUserById } from "../../auth/users.js";
+import { deleteUserAvatar, findUserById, getUserAvatar, setUserAvatar, updateDisplayName } from "../../auth/users.js";
+import type { PublicUser } from "../../auth/users.js";
 import { config } from "../../config.js";
 import { getRetentionSettings } from "../../feeds/cleanup.js";
 import { APP_VERSION } from "../../version.js";
@@ -46,6 +49,7 @@ const FEATURES = [
   "edition.layout",
   "search.fts",
   "account-capabilities",
+  "account-profile",
   "mcp",
   "inbox",
 ];
@@ -119,18 +123,68 @@ v1Router.use((req, res, next) => {
   next();
 });
 
-v1Router.get("/me", (req, res) => {
-  res.setHeader("Cache-Control", "private, no-store");
-  const { id, email, display_name, role } = req.user!;
-  res.json({
-    id,
-    email,
-    displayName: display_name,
-    role,
+/** `avatarUpdatedAt` doubles as the cache key of the photo: a client loads `/me/avatar` again only when it changes. */
+function meResponse(req: Request, user: PublicUser) {
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.display_name,
+    avatarUpdatedAt: user.avatar_updated_at,
+    role: user.role,
     scope: req.tokenScope ?? "write",
     deviceId: req.tokenKind === "device" ? req.tokenId : null,
-    capabilities: getUserCapabilities(id),
-  });
+    capabilities: getUserCapabilities(user.id),
+  };
+}
+
+v1Router.get("/me", (req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json(meResponse(req, req.user!));
+});
+
+const profileSchema = z.object({
+  displayName: z.string().trim().min(1).max(100),
+});
+
+v1Router.patch("/me", (req, res) => {
+  const parsed = profileSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "invalid_input" });
+    return;
+  }
+  updateDisplayName(req.user!.id, parsed.data.displayName);
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json(meResponse(req, findUserById(req.user!.id)!));
+});
+
+v1Router.get("/me/avatar", (req, res) => {
+  const avatar = getUserAvatar(req.user!.id);
+  if (!avatar) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  // The client adds `avatarUpdatedAt` to the URL, so a changed photo gets a new cache key.
+  res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
+  res.type(avatar.mime_type).send(avatar.data);
+});
+
+// The type is taken from the file signature, never from the declared content type.
+v1Router.put("/me/avatar", express.raw({ type: ["image/jpeg", "image/png", "image/webp"], limit: AVATAR_MAX_BYTES }), (req, res) => {
+  const data = Buffer.isBuffer(req.body) ? req.body : null;
+  const mimeType = data ? detectAvatarType(data) : null;
+  if (!data || !mimeType) {
+    res.status(400).json({ error: "invalid_image" });
+    return;
+  }
+  setUserAvatar(req.user!.id, mimeType, data);
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json(meResponse(req, findUserById(req.user!.id)!));
+});
+
+v1Router.delete("/me/avatar", (req, res) => {
+  deleteUserAvatar(req.user!.id);
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json(meResponse(req, findUserById(req.user!.id)!));
 });
 
 v1Router.get("/devices", (req, res) => {
