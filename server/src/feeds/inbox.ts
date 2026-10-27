@@ -4,7 +4,8 @@ import { db } from "../db/index.js";
 import { hasUserCapability } from "../auth/capabilities.js";
 import { configureFullTextPool, deferFullTextHost } from "./fullTextQueue.js";
 import { extractArticle } from "./extractor.js";
-import { assertPublicHttpUrl, normalizeUrlCandidate } from "./ssrfGuard.js";
+import { normalizeUrlCandidate } from "./ssrfGuard.js";
+import { assertPublicFeedUrl } from "./blockedHosts.js";
 import { articleImageUrls, pruneArchive, scheduleArchive } from "./archive.js";
 import {
   findFeedById,
@@ -77,7 +78,7 @@ export async function saveToInbox(
 
   if (input.url?.trim()) {
     const normalized = normalizeUrlCandidate(input.url.trim());
-    await assertPublicHttpUrl(normalized);
+    await assertPublicFeedUrl(normalized);
     targetUrl = normalized;
 
     if (!contentHtml && hasUserCapability(userId, "fulltext")) {

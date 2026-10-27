@@ -2,7 +2,8 @@ import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import { fetch as undiciFetch } from "undici";
 import { cleanPage } from "./content/index.js";
-import { assertPublicHttpUrl, createPublicDispatcher, SsrfBlockedError } from "./ssrfGuard.js";
+import { createPublicDispatcher, SsrfBlockedError } from "./ssrfGuard.js";
+import { assertPublicFeedUrl } from "./blockedHosts.js";
 import type { Agent } from "undici";
 import { articleWorkPool, ArticleHostBusyError, ArticleAccessDeniedError } from "./articleWorkPool.js";
 import { parseRetryAfter } from "./fetcher.js";
@@ -145,7 +146,7 @@ async function fetchArticleHtml(rawUrl: string, signal: AbortSignal, dispatcher:
 
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
     articleWorkPool().move(ownerSignal, sourceHost(currentUrl));
-    const safeUrl = await assertPublicHttpUrl(currentUrl);
+    const safeUrl = await assertPublicFeedUrl(currentUrl);
     signal.throwIfAborted();
     const response = await fetchImpl(safeUrl, {
       signal,

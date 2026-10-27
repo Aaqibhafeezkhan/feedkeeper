@@ -11,7 +11,8 @@ import {
   type Feed,
   type SubscribedFeed,
 } from "./repository.js";
-import { assertPublicHttpUrl, SsrfBlockedError } from "./ssrfGuard.js";
+import { SsrfBlockedError } from "./ssrfGuard.js";
+import { assertPublicFeedUrl } from "./blockedHosts.js";
 import { requestFeedPoll } from "./poller.js";
 import { decodeEntities } from "./text.js";
 
@@ -195,7 +196,7 @@ export async function importOpmlFeeds(userId: number, xmlContent: string): Promi
 
     let normalizedUrl: string;
     try {
-      const validated = await assertPublicHttpUrl(item.url);
+      const validated = await assertPublicFeedUrl(item.url);
       normalizedUrl = validated.toString();
     } catch (error) {
       result.failed++;

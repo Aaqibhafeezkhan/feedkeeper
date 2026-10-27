@@ -20,6 +20,7 @@ import { repairEncodedText } from "./feeds/repository.js";
 import { pruneArchive, scheduleMissingArchives } from "./feeds/archive.js";
 import { startNativeRequestCleanup } from "./native/requests.js";
 import { startLeadBackfill } from "./feeds/lead.js";
+import { purgeBlockedFeeds } from "./feeds/blockedHosts.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = join(__dirname, "../../web/dist");
@@ -27,6 +28,8 @@ const WEB_DIST = join(__dirname, "../../web/dist");
 runMigrations();
 const repairedItems = repairEncodedText();
 if (repairedItems > 0) console.log(`[db] decoded HTML entities in ${repairedItems} stored items`);
+const blockedFeeds = purgeBlockedFeeds();
+if (blockedFeeds.feeds > 0) console.log(`[feeds] ${blockedFeeds.feeds} feeds are on the block list; removed ${blockedFeeds.items} of their articles`);
 startLeadBackfill();
 pruneArchive();
 const pendingArchives = scheduleMissingArchives();

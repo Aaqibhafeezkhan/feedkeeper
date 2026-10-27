@@ -1,5 +1,6 @@
 import { fetch as undiciFetch } from "undici";
-import { assertPublicHttpUrl, createPublicDispatcher, normalizeUrlCandidate } from "./ssrfGuard.js";
+import { createPublicDispatcher, normalizeUrlCandidate } from "./ssrfGuard.js";
+import { assertPublicFeedUrl } from "./blockedHosts.js";
 import { APP_VERSION } from "../version.js";
 import { feedRequests, sourceHost } from "./requestGate.js";
 import { readPollSettings } from "./pollSettings.js";
@@ -81,7 +82,7 @@ async function validateUrl(url: string, signal: AbortSignal): Promise<URL> {
   return new Promise((resolve, reject) => {
     const abort = () => reject(signal.reason);
     signal.addEventListener("abort", abort, { once: true });
-    assertPublicHttpUrl(url).then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+    assertPublicFeedUrl(url).then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
   });
 }
 

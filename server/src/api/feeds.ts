@@ -5,6 +5,7 @@ import { requireCapability } from "../auth/capabilities.js";
 import { listSubscriptionsForUser, findFeedById, isUserSubscribed, reorderSubscriptions } from "../feeds/repository.js";
 import { subscribeToFeed, unsubscribeFromFeed, updateFeedSettings, FeedError, MultipleFeedsFoundError } from "../feeds/service.js";
 import { SsrfBlockedError, normalizeUrlCandidate } from "../feeds/ssrfGuard.js";
+import { blockedUrlBody } from "../feeds/blockedHosts.js";
 import { generateOpml, importOpmlFeeds } from "../feeds/opml.js";
 import { pollFeed, pollFeeds } from "../feeds/poller.js";
 import { discoverFeeds } from "../feeds/discovery.js";
@@ -111,7 +112,7 @@ feedsRouter.post("/discover", requireSync, async (req, res) => {
     res.json({ feeds });
   } catch (error) {
     if (error instanceof SsrfBlockedError) {
-      res.status(400).json({ error: "blocked_url", message: error.message });
+      res.status(400).json(blockedUrlBody(error));
       return;
     }
     res.status(400).json({ error: "discovery_failed", message: error instanceof Error ? error.message : String(error) });
@@ -141,7 +142,7 @@ feedsRouter.post("/", requireSync, async (req, res) => {
     res.status(201).json(subscription);
   } catch (error) {
     if (error instanceof SsrfBlockedError) {
-      res.status(400).json({ error: "blocked_url", message: error.message });
+      res.status(400).json(blockedUrlBody(error));
       return;
     }
     if (error instanceof MultipleFeedsFoundError) {

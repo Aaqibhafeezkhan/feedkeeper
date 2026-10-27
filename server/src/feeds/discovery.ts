@@ -1,6 +1,6 @@
 import Parser from "rss-parser";
 import { fetchFeed } from "./fetcher.js";
-import { assertPublicHttpUrl } from "./ssrfGuard.js";
+import { assertPublicFeedUrl } from "./blockedHosts.js";
 import { decodeEntities, plainTitle } from "./text.js";
 
 const rssParser = new Parser();
@@ -84,7 +84,7 @@ async function keepRealFeeds(candidates: DiscoveredFeed[], pageUrl: string): Pro
  * or if it is an HTML page that links to one or more feeds (auto-discovery).
  */
 export async function discoverFeeds(inputUrl: string): Promise<DiscoveredFeed[]> {
-  const validated = await assertPublicHttpUrl(inputUrl);
+  const validated = await assertPublicFeedUrl(inputUrl);
   const targetUrl = validated.toString();
 
   // 1. The URL is already a feed.

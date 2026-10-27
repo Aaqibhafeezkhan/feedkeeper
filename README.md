@@ -275,6 +275,7 @@ Third-party clients are welcome to build on the same API — see [docs/building-
 
 - **Closed signup by default** (`ALLOW_SIGNUP=false`). An admin creates additional accounts from Settings.
 - **SSRF protection**: feed URLs and redirects are checked before fetching and again when connecting. Private/internal addresses are blocked by default. On trusted instances that need local feeds, set `ALLOW_PRIVATE_FEEDS=true`.
+- **Blocked sources**: list domains in `BLOCKED_FEED_HOSTS` (comma-separated, subdomains included) to keep them out of your instance. Subscribing, polling, article text and images are refused for them with the error `feed_blocked`. Feeds already stored stop updating and lose their articles, except saved ones, ones with notes and ones in a published edition. Restart the server after changing the list.
 - **Rate limiting** on login and the general API surface.
 - **Personal access tokens** are stored as salted hashes, never in plaintext.
 - **OAuth 2.1 for MCP** with required PKCE, expiring tokens, refresh-token rotation with reuse detection, and a consent page that asks every time.

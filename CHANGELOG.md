@@ -4,6 +4,13 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+- Blocked sources: `BLOCKED_FEED_HOSTS` lists domains (subdomains included) that the server never subscribes to, polls or fetches articles and images from. Feeds already stored for them stop updating and lose their articles, except saved ones, ones with notes and ones in a published edition; their subscriptions stay with the error `feed_blocked`. Subscribing to a blocked source answers `feed_blocked` with "This source is not available on this server."
+- Hosts that embed the server can add their own list at runtime with `setBlockedHostsProvider`, and apply it to stored feeds with `purgeBlockedFeeds`.
+
+### Upgrade notes
+- No action is needed. The list is empty by default.
+
 ## [0.31.0] - 2026-10-27
 
 ### Added

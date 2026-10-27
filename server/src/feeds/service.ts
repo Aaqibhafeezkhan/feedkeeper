@@ -21,7 +21,7 @@ import {
   type SubscribedFeed,
 } from "./repository.js";
 import { pollFeed, probeFeed } from "./poller.js";
-import { assertPublicHttpUrl } from "./ssrfGuard.js";
+import { assertPublicFeedUrl } from "./blockedHosts.js";
 
 import { discoverFeeds } from "./discovery.js";
 
@@ -41,7 +41,7 @@ export class MultipleFeedsFoundError extends FeedError {
 
 /** Turn a feed or website URL into a feed URL, using auto-discovery for website addresses. */
 async function resolveFeedUrl(inputUrl: string): Promise<{ url: string }> {
-  const validated = await assertPublicHttpUrl(inputUrl.trim());
+  const validated = await assertPublicFeedUrl(inputUrl.trim());
   const targetUrl = validated.toString();
   // A known shared feed needs no second discovery download beside its queued poll.
   if (findFeedByUrl(targetUrl)) return { url: targetUrl };

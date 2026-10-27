@@ -41,6 +41,7 @@ import {
 import { saveToInbox, deleteInboxItem } from "../../feeds/inbox.js";
 import { changeFeedUrl, FeedError, MultipleFeedsFoundError, subscribeToFeed, unsubscribeFromFeed, updateFeedSettings } from "../../feeds/service.js";
 import { SsrfBlockedError, normalizeUrlCandidate } from "../../feeds/ssrfGuard.js";
+import { blockedUrlBody } from "../../feeds/blockedHosts.js";
 import { buildOverview } from "../../mcp/digest.js";
 import { decodeCursor, encodeCursor } from "../../mcp/items.js";
 import { readingPositions, serializeItem, serializeSubscriptionDetail } from "./serialize.js";
@@ -88,7 +89,7 @@ resourcesRouter.post("/subscriptions", async (req, res) => {
     const created = await subscribeToFeed(req.user!.id, parsed.data.url, parsed.data.label ?? null, parsed.data.folderId ?? null);
     res.status(201).json(subscriptionOf(req.user!.id, created.id));
   } catch (error) {
-    if (error instanceof SsrfBlockedError) return void res.status(400).json({ error: "blocked_url", message: error.message });
+    if (error instanceof SsrfBlockedError) return void res.status(400).json(blockedUrlBody(error));
     if (error instanceof MultipleFeedsFoundError) return void res.status(409).json({ error: "multiple_feeds_found", feeds: error.feeds });
     if (error instanceof FeedError) return void res.status(error.message === "already_subscribed" ? 409 : 400).json({ error: error.message });
     res.status(400).json({ error: "invalid_feed", message: error instanceof Error ? error.message : String(error) });
@@ -130,7 +131,7 @@ resourcesRouter.patch("/subscriptions/:id", async (req, res) => {
     res.json(subscriptionOf(req.user!.id, targetId));
   } catch (error) {
     if (error instanceof MultipleFeedsFoundError) return void res.status(409).json({ error: "multiple_feeds_found", feeds: error.feeds });
-    if (error instanceof SsrfBlockedError) return void res.status(400).json({ error: "blocked_url", message: error.message });
+    if (error instanceof SsrfBlockedError) return void res.status(400).json(blockedUrlBody(error));
     if (error instanceof FeedError) return void res.status(error.message === "not_subscribed" ? 404 : 400).json({ error: error.message });
     res.status(400).json({ error: "invalid_feed", message: error instanceof Error ? error.message : String(error) });
   }
@@ -197,7 +198,7 @@ resourcesRouter.post("/discover", async (req, res) => {
   try {
     res.json({ feeds: await discoverFeeds(parsed.data.url) });
   } catch (error) {
-    if (error instanceof SsrfBlockedError) return void res.status(400).json({ error: "blocked_url", message: error.message });
+    if (error instanceof SsrfBlockedError) return void res.status(400).json(blockedUrlBody(error));
     res.status(400).json({ error: "discovery_failed", message: error instanceof Error ? error.message : String(error) });
   }
 });

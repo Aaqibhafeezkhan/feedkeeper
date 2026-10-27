@@ -3,6 +3,7 @@ import { setImmediate as yieldTurn } from "node:timers/promises";
 import { db } from "../db/index.js";
 import { findFeedById, updateFeedAfterPoll, type Feed } from "./repository.js";
 import { FeedHttpError } from "./fetcher.js";
+import { FEED_BLOCKED_ERROR, FeedBlockedError } from "./blockedHosts.js";
 import { feedRequests, PollDeferredError, PollShutdownError, RequestQueueFullError, sourceHost } from "./requestGate.js";
 import { readPollSettings, type PollSettings } from "./pollSettings.js";
 import { pushOutboxMetrics } from "../pushOutbox.js";
@@ -24,6 +25,7 @@ function isTransient(error: unknown): boolean {
     : error instanceof TypeError || error instanceof RequestQueueFullError || (error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name));
 }
 export function pollErrorCode(error: unknown): string {
+  if (error instanceof FeedBlockedError) return FEED_BLOCKED_ERROR;
   if (error instanceof FeedHttpError) return `feed_http_${error.status}`;
   if (error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)) return "feed_timeout";
   if (error instanceof TypeError) return "feed_network_error";
