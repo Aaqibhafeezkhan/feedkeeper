@@ -87,6 +87,7 @@ test("purging keeps subscriptions and saved articles and removes the rest of a b
   process.env.DATABASE_PATH = ":memory:";
   process.env.SESSION_SECRET = "isolated-blocked-hosts-test-secret-at-least-32-characters";
   const blockedHosts = await import("../src/feeds/blockedHosts.js");
+  const { purgeBlockedFeeds } = await import("../src/feeds/blockedFeeds.js");
   const { db, runMigrations } = await import("../src/db/index.js");
   const { createUser } = await import("../src/auth/users.js");
   const { createFeed, subscribe, upsertItems, bookmarkItem, findFeedById } = await import("../src/feeds/repository.js");
@@ -103,10 +104,10 @@ test("purging keeps subscriptions and saved articles and removes the rest of a b
     const saved = db.prepare("SELECT id FROM items WHERE feed_id = ? AND guid = 'a'").get(blockedFeed.id) as { id: number };
     bookmarkItem(user.id, saved.id);
 
-    assert.deepEqual(blockedHosts.purgeBlockedFeeds(), { feeds: 0, items: 0 });
+    assert.deepEqual(purgeBlockedFeeds(), { feeds: 0, items: 0 });
 
     blockedHosts.setBlockedHostsProvider(() => ["purged.example"]);
-    assert.deepEqual(blockedHosts.purgeBlockedFeeds(), { feeds: 1, items: 2 });
+    assert.deepEqual(purgeBlockedFeeds(), { feeds: 1, items: 2 });
 
     const remaining = db.prepare("SELECT guid FROM items WHERE feed_id = ?").all(blockedFeed.id) as Array<{ guid: string }>;
     assert.deepEqual(remaining.map(item => item.guid), ["a"]);

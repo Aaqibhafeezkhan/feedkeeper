@@ -20,7 +20,7 @@ import { repairEncodedText } from "./feeds/repository.js";
 import { pruneArchive, scheduleMissingArchives } from "./feeds/archive.js";
 import { startNativeRequestCleanup } from "./native/requests.js";
 import { startLeadBackfill } from "./feeds/lead.js";
-import { purgeBlockedFeeds } from "./feeds/blockedHosts.js";
+import { purgeBlockedFeeds } from "./feeds/blockedFeeds.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = join(__dirname, "../../web/dist");
