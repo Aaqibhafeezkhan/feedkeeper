@@ -1,4 +1,4 @@
-import { TEASER_LINK_TEXT } from "../patterns/teaser-links.js";
+import { TEASER_LINK_ALWAYS, TEASER_LINK_TEXT } from "../patterns/teaser-links.js";
 import { type ContentRule, flat, pruneEmpty } from "../shared.js";
 
 /** Brackets a site puts around the link: "[mehr]", "(more)", "« mehr »". */
@@ -17,7 +17,8 @@ export const teaserLinks: ContentRule = {
     for (const link of [...root.querySelectorAll("a")]) {
       if (!root.contains(link) || link.querySelector("img, picture, video")) continue;
       const text = flat(link.textContent);
-      if (!TEASER_LINK_TEXT.some(pattern => pattern.test(text))) continue;
+      const always = TEASER_LINK_ALWAYS.some(pattern => pattern.test(text));
+      if (!always && !TEASER_LINK_TEXT.some(pattern => pattern.test(text))) continue;
       const block = link.closest("p, div, li, td, blockquote, section, article") ?? link.parentElement;
       if (!block) continue;
       // Only the end of the block: nothing but whitespace, brackets or breaks may follow the link.
@@ -33,8 +34,10 @@ export const teaserLinks: ContentRule = {
       }
       const before = link.previousSibling;
       const precedingText = flat(block.textContent).replace(text, "");
-      if (precedingText.replace(/[[\]()«»\s]/g, "") === "") continue;
-      if (before?.nodeType === 3 && OPENING.test(before.textContent ?? "")) before.textContent = (before.textContent ?? "").replace(OPENING, "");
+      // A bare "Mehr" with nothing before it is a menu entry or a button; with brackets around it, or as a longer phrase, it is the teaser.
+      const bracketed = before?.nodeType === 3 && OPENING.test(before.textContent ?? "");
+      if (!always && !bracketed && precedingText.replace(/[[\]()«»\s]/g, "") === "") continue;
+      if (bracketed && before) before.textContent = (before.textContent ?? "").replace(OPENING, "");
       tail.forEach(node => node.parentNode?.removeChild(node));
       const parent = link.parentNode;
       link.remove();

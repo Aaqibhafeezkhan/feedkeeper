@@ -437,9 +437,18 @@ function collapseAdjacentImages(root: DocumentFragment, stats: NoiseStats): bool
   return duplicates.length > 0;
 }
 
+/** The notice that a text carries affiliate links: it belongs to the page, not to the story, so a lead and a summary leave it out. */
+const DISCLOSURE_PATTERNS: RegExp[] = [
+  /^※?\s*(本ページ|当サイト|この記事|本記事)[^。\n]{0,40}(アフィリエイト|広告|プロモーション)/,
+  /^(This (post|article|page) (contains|includes) (some )?affiliate links|Dieser (Beitrag|Artikel) enthält (Affiliate|Werbe)[- ]?links?)/i,
+];
+
+/** What a text field holds when a feed generator printed an empty value. */
+const PLACEHOLDER = /^(none|null|undefined|nan|n\/a|\(null\)|\[object Object\])$/i;
+
 const CREDIT_PATTERNS: RegExp[] = [
   /^(©|\(c\)\s|copyright\b)/i,
-  /^[([]?(Bild|Foto|Fotos|Bildquelle|Bildrechte|Bildnachweis|Titelbild|Beitragsbild|Photo|Image|Credits?|Grafik|Illustration)[)\]]?\s*[:/|]/i,
+  /^[([]?(Bild|Foto|Fotos|Bildquelle|Bildrechte|Bildnachweis|Titelbild|Beitragsbild|Photo|Image|Credits?|Grafik|Illustration|Source|Quelle)[)\]]?\s*[:/|]/i,
   /\|\s*(Image|Photo|Foto|Bild|Credit)s?\s*:/i,
   /\(\s*(Bildquelle|Bildrechte|Foto|Bild|Photo|Image|Credit|Quelle)\s*:[^)]{1,60}\)\s*\.?$/i,
   /\bBildrechte:\s*(Bildrechte:\s*)?[^.]{1,60}$/i,
@@ -565,6 +574,8 @@ export function derivedText(html: string | null | undefined, title?: string | nu
     else if (text.length <= 300 && (early || late) && matchesAny(text, CALL_TO_ACTION_PATTERNS)) mark(index, "call-to-action");
     else if (text.length <= 300 && late && matchesAny(text, COMMENT_PATTERNS)) mark(index, "comments");
     else if (isSocialList(text)) mark(index, "call-to-action");
+    else if (early && text.length <= 300 && matchesAny(text, DISCLOSURE_PATTERNS)) mark(index, "disclosure");
+    else if (PLACEHOLDER.test(text)) mark(index, "placeholder");
     else if (early && text.length <= 160 && matchesAny(text, HEAD_META_PATTERNS)) mark(index, "head-meta");
     else if ((early || late) && text.length <= 300 && matchesAny(text, CREDIT_PATTERNS)) {
       mark(index, "credit");
@@ -593,12 +604,22 @@ const SNIPPET_LINE_PATTERNS: RegExp[] = [
   /^Wo du uns folgen kannst:.*$/i,
   /^Auf dem Laufenden bleiben\?$/i,
   /^Fügt uns doch bei Google.*$/i,
+  PLACEHOLDER,
+  // The date a content system prints under the title: "Wed, 10/28/2026 - 15:00".
+  /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+\d{1,2}\/\d{1,2}\/\d{4}\s*[-–]\s*\d{1,2}:\d{2}$/i,
+  ...DISCLOSURE_PATTERNS,
 ];
 const SNIPPET_INLINE_PATTERNS: RegExp[] = [
   /\s*(Der|Die|Das) Beitrag [^\n]+? (erschien|wurde) zuerst (auf|bei|beim) [^\n]*?\.(?=\s|$)(\s*(Folge uns auch auf|Über unseren Newsletter)[^\n]*?\.(?=\s|$))*/gi,
   /\s*Über unseren Newsletter [^\n]*?\.(?=\s|$)/gi,
   /\s*The post [^\n]+? appeared first on [^\n]*?\.(?=\s|$)/gi,
   // "Titel[mehr]": a feed ends its summary with the words of the link to the article.
+  // "Source: Apple. Text …": the credit of the picture ahead of the summary.
+  /^(Source|Quelle|Image|Photo|Bild|Foto|Credit)s?( credit)?:\s*[^.\n]{1,40}\.\s+(?=\S)/gim,
+  // "Nature, Published online: 28 October 2026; doi:10.1038/…": the reference a journal puts ahead of the abstract.
+  /^[^\n]{0,40}Published (online|in print):\s*[^;\n]{4,30};\s*doi:\S+\s*/gim,
+  // Medium: "Continue reading on Name »".
+  /\s*Continue reading on [^\n»]{2,60}»\s*$/gim,
   /\s*[[(«]\s*(mehr|mehr lesen|weiterlesen|more|read more|continue reading|続きを読む|もっと見る)\s*[\])»]\s*$/gim,
 ];
 
@@ -618,7 +639,7 @@ export function cleanSnippet(snippet: string | null | undefined, title?: string 
 }
 
 /** Raised whenever the rules above change what they remove, so stored leads are derived again. */
-export const LEAD_VERSION = 1;
+export const LEAD_VERSION = 2;
 const LEAD_LENGTH = 600;
 
 function shorten(text: string, max: number): string {
@@ -638,5 +659,6 @@ function shorten(text: string, max: number): string {
 export function leadText(parts: { html?: string | null; snippet?: string | null; title?: string | null }, max = LEAD_LENGTH): string {
   const body = derivedText(parts.html, parts.title);
   const summary = flat(cleanSnippet(parts.snippet, parts.title));
-  return shorten(body.length >= summary.length ? body : summary, max);
+  const lead = shorten(body.length >= summary.length ? body : summary, max);
+  return PLACEHOLDER.test(lead) ? "" : lead;
 }

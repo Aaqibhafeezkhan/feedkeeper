@@ -7,3 +7,8 @@ export const TEASER_LINK_TEXT: readonly RegExp[] = [
   /^(more|read more|read the full story|read full article|continue reading|keep reading|full story)(\s*(…|\.\.\.|»|>|→))?$/i,
   /^(続きを読む|もっと見る|続きはこちら|詳細|詳しく見る)$/,
 ];
+
+/** Links that are the teaser's own words wherever they stand, even alone in a block: "Continue reading on UX Collective »". */
+export const TEASER_LINK_ALWAYS: readonly RegExp[] = [
+  /^(continue reading|read more|read the full story|weiterlesen|mehr lesen) (on|at|auf|bei) .{2,60}(»|>|→)?$/i,
+];
