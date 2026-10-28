@@ -52,6 +52,7 @@ const FEATURES = [
   "account-profile",
   "mcp",
   "inbox",
+  "feed-lists",
 ];
 
 v1Router.get("/meta", (_req, res) => {

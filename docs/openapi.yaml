@@ -327,6 +327,46 @@ paths:
       responses:
         "200": { description: Import result }
         "400": { $ref: "#/components/responses/Invalid" }
+  /feed-lists:
+    get:
+      tags: [Subscriptions]
+      summary: Hand-picked feed lists by interest
+      description: >-
+        Lists of well-known feeds with a short description each, for the first steps of an empty account. The texts come in the language
+        of `lang` (`en`, `de` or `ja`; else the first of `Accept-Language`, else English). Every feed carries the language of its content,
+        so a client can show the reader's own language first. Announced as `feed-lists` in `/meta.features`. Subscribe to the chosen
+        feeds with `POST /subscriptions`, ideally into a folder named after the list.
+      parameters:
+        - { name: lang, in: query, required: false, schema: { type: string, enum: [en, de, ja] } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [lists]
+                properties:
+                  lists:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, iconSymbol, title, description, feeds]
+                      properties:
+                        id: { type: string }
+                        iconSymbol: { type: string, description: Name of an SF Symbol that suits the folder for this list. }
+                        title: { type: string }
+                        description: { type: string }
+                        feeds:
+                          type: array
+                          items:
+                            type: object
+                            required: [title, url, lang, description]
+                            properties:
+                              title: { type: string }
+                              url: { type: string, format: uri }
+                              lang: { type: string, description: Language of the feed's content. }
+                              description: { type: string }
   /folders:
     get:
       tags: [Folders]

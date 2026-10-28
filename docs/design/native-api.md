@@ -166,6 +166,7 @@ Implemented routes accept device tokens or personal access tokens unless noted. 
 **Account and settings**
 - `GET /me`, `GET /devices`, `DELETE /devices/{id}`, `POST /devices/pair` (no auth, needs a code), `POST /pairing-codes` (web session).
 - `PATCH /me` changes the display name; `GET`, `PUT` and `DELETE /me/avatar` read, set and remove the profile photo (announced as `account-profile` in `/meta.features`; the writes need a token with write scope). `GET /me` carries `avatarUpdatedAt`, which is `null` without a photo. Clients keep the photo per account and load `/me/avatar?v=<avatarUpdatedAt>` again only when that value changes. The photo is a JPEG, PNG or WebP of at most 512 KB; apps should crop it to a square and scale it down (the web app uses 256 × 256 JPEG) before uploading. Name and photo are the same as in the web app.
+- `GET /feed-lists?lang=en|de|ja` (announced as `feed-lists`): hand-picked feeds by interest, each with a short description, so a client can offer them as a last step of setting up an empty account. The lists live in one file of the server (`server/src/feeds/feedListsData.ts`); a host that embeds the server can replace them with `setFeedListsProvider`. A client lets people tick feeds from any lists, subscribes with `POST /subscriptions` and puts them in a folder named after the list (`iconSymbol` is a suitable symbol for it).
 - `GET /overview`: unread counts per feed and folder, saved count, failing feeds. Cheap enough for widgets and the app badge.
 
 **Subscriptions and folders**

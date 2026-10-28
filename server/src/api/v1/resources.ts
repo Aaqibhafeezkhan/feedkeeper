@@ -9,6 +9,7 @@ import { ImageCacheBusyError } from "../../feeds/imageCache.js";
 import { discoverFeeds } from "../../feeds/discovery.js";
 import { loadFullText } from "../../feeds/fullText.js";
 import { generateOpml, importOpmlFeeds } from "../../feeds/opml.js";
+import { pickFeedListLanguage, resolveFeedLists } from "../../feeds/feedLists.js";
 import { pollFeed, pollFeeds } from "../../feeds/poller.js";
 import { canAccessFeed, loadFeedIcon } from "../../feeds/feedIcon.js";
 import {
@@ -68,6 +69,14 @@ function subscriptionOf(userId: number, id: number) {
 
 resourcesRouter.get("/overview", (req, res) => {
   res.json(buildOverview(req.user!.id));
+});
+
+// ---- Feed lists ------------------------------------------------------------
+
+// Hand-picked feeds by interest, with a short description each, in the language asked for (`?lang=`, else `Accept-Language`).
+resourcesRouter.get("/feed-lists", (req, res) => {
+  const requested = typeof req.query.lang === "string" ? req.query.lang : req.get("accept-language");
+  res.json({ lists: resolveFeedLists(pickFeedListLanguage(requested)) });
 });
 
 // ---- Subscriptions -------------------------------------------------------
