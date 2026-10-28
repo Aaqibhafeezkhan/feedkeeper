@@ -29,7 +29,7 @@ address there), then Readability picks the article. Embeds also run on the HTML 
 
 ## Embeds become marked links
 
-A video, a post or a player becomes one plain link with `data-media="video" | "social" | "audio"` and, where the
+A video, a post, a player or a native audio or video element becomes one plain link with `data-media="video" | "social" | "audio"` and, where the
 platform is known, `data-source` with its name. The web reader and the native apps show such a link as a card. Nothing
 is ever embedded, and no platform script is loaded.
 

@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+- Podcast and video articles whose feed carries a native `<audio>` or `<video>` element no longer show a player that cannot play (a bar saying "Error"). The new content rule `media-elements` turns such an element into one marked link to its file (`data-media="audio"` or `"video"`), or removes it when it names no address.
+
 ## [0.32.0] - 2026-10-27
 
 ### Added
