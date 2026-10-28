@@ -120,22 +120,32 @@ test("a password card from the host needs a mount function", () => {
   assert.equal(resolvePasswordCard({}), null);
 });
 
-test("starter packs of the host are added to the built-in ones, replace them on request, and are checked", async () => {
+test("starter packs of the host are added to the lists of the server, replace them on request, and are checked", async () => {
   const { resolveStarterPacks, resolveOnboarding } = await import("../src/extensions/host.ts");
-  const { BUILT_IN_STARTER_PACKS, feedsForLanguage } = await import("../src/onboarding/starterPacks.ts");
+  const { feedsForLanguage, feedsInAllLanguages } = await import("../src/onboarding/feedLists.ts");
+  const fromServer = [
+    { id: "news", iconSymbol: "newspaper", title: "Nachrichten", description: "Schlagzeilen.", feeds: [{ title: "Tagesschau", url: "https://example.org/tagesschau", lang: "de", description: "Die Meldungen." }] },
+    { id: "technology", iconSymbol: "desktopcomputer", title: "Technik", description: "", feeds: [
+      { title: "heise", url: "https://example.org/heise", lang: "de", description: "IT-News." },
+      { title: "Verge", url: "https://example.org/verge", lang: "en", description: "Geräte." },
+      { title: "ITmedia", url: "https://example.org/itmedia", lang: "ja", description: "" },
+    ] },
+  ];
   const own = { id: "company", title: { en: "Company", de: "Firma" }, feeds: [
-    { title: "Blog", url: "https://example.org/feed.xml", lang: "de-AT" },
+    { title: "Blog", url: "https://example.org/feed.xml", lang: "de-AT", description: { en: "Our news", de: "Unsere Neuigkeiten" } },
     { title: "Script", url: "javascript:alert(1)" },
     { title: "Secret", url: "https://user:pass@example.org/feed" },
     { title: "", url: "https://example.org/empty" },
   ] };
-  const added = resolveStarterPacks({ starterPacks: { packs: [own, { id: "Bad Id", title: "x", feeds: [] }, { id: "empty", title: "Empty", feeds: [{ title: "No", url: "ftp://example.org" }] }] } }, BUILT_IN_STARTER_PACKS, "de");
-  assert.deepEqual(added.map((pack) => pack.id), [...BUILT_IN_STARTER_PACKS.map((pack) => pack.id), "company"]);
+  const added = resolveStarterPacks({ starterPacks: { packs: [own, { id: "Bad Id", title: "x", feeds: [] }, { id: "empty", title: "Empty", feeds: [{ title: "No", url: "ftp://example.org" }] }] } }, fromServer, "de");
+  assert.deepEqual(added.map((pack) => pack.id), ["news", "technology", "company"]);
   const company = added.at(-1);
   assert.equal(company.title, "Firma");
-  assert.deepEqual(company.feeds, [{ title: "Blog", url: "https://example.org/feed.xml", lang: "de" }]);
-  assert.deepEqual(resolveStarterPacks({ starterPacks: { replace: true, packs: [own] } }, BUILT_IN_STARTER_PACKS, "en").map((pack) => pack.id), ["company"]);
-  assert.equal(resolveStarterPacks({}, BUILT_IN_STARTER_PACKS, "en").length, BUILT_IN_STARTER_PACKS.length);
+  assert.deepEqual(company.feeds, [{ title: "Blog", url: "https://example.org/feed.xml", lang: "de", description: "Unsere Neuigkeiten" }]);
+  assert.equal(added[0].feeds[0].description, "Die Meldungen.", "the description of a feed from the server is kept");
+  assert.deepEqual(resolveStarterPacks({ starterPacks: { replace: true, packs: [own] } }, fromServer, "en").map((pack) => pack.id), ["company"]);
+  assert.equal(resolveStarterPacks({}, fromServer, "en").length, fromServer.length);
+  assert.equal(resolveStarterPacks({}, [], "en").length, 0, "without lists from the server nothing is shown");
   assert.equal(resolveOnboarding({ onboarding: { mount() {} } }) !== null, true);
   assert.equal(resolveOnboarding({ onboarding: {} }), null);
 
@@ -143,21 +153,10 @@ test("starter packs of the host are added to the built-in ones, replace them on 
   assert.ok(feedsForLanguage(technology, "de").every((feed) => feed.lang === "de" || feed.lang === "en"));
   assert.equal(feedsForLanguage(technology, "de")[0].lang, "de", "the own language comes first");
   assert.ok(feedsForLanguage(technology, "ja").length > 0 && feedsForLanguage(technology, "ja").every((feed) => feed.lang === "ja"), "Japanese readers get no English feeds where there are Japanese ones");
-  assert.ok(feedsForLanguage({ feeds: [{ lang: "en" }] }, "ja").length === 1, "but a pack without Japanese ones still shows the English ones");
+  assert.ok(feedsForLanguage({ feeds: [{ lang: "en" }] }, "ja").length === 1, "but a list without Japanese ones still shows the English ones");
   assert.ok(feedsForLanguage(technology, "en").every((feed) => feed.lang === "en"));
-});
-
-test("the built-in starter packs have unique ids, https addresses and titles in every language", async () => {
-  const { BUILT_IN_STARTER_PACKS } = await import("../src/onboarding/starterPacks.ts");
-  assert.equal(new Set(BUILT_IN_STARTER_PACKS.map((pack) => pack.id)).size, BUILT_IN_STARTER_PACKS.length);
-  const urls = BUILT_IN_STARTER_PACKS.flatMap((pack) => pack.feeds.map((feed) => feed.url));
-  assert.equal(new Set(urls).size, urls.length, "no feed twice");
-  for (const pack of BUILT_IN_STARTER_PACKS) {
-    for (const language of ["en", "de", "ja"]) {
-      assert.ok(pack.title[language] && pack.description[language], `${pack.id} has a ${language} title and description`);
-    }
-    for (const feed of pack.feeds) assert.match(feed.url, /^https:\/\//);
-  }
+  assert.deepEqual(feedsInAllLanguages(technology, "de").map((feed) => feed.lang), ["de", "en", "ja"], "all languages: own first, English next, the rest after");
+  assert.deepEqual(feedsInAllLanguages(technology, "ja").map((feed) => feed.lang), ["ja", "en", "de"]);
 });
 
 test("a notice above the articles needs a mount function, and `applies` is optional", () => {

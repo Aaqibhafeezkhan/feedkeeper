@@ -225,6 +225,15 @@ export interface OAuthGrant {
   last_used_at: string | null;
 }
 
+/** A hand-picked list of feeds on one interest, with the texts in the language asked for. */
+export interface FeedList {
+  id: string;
+  iconSymbol: string;
+  title: string;
+  description: string;
+  feeds: Array<{ title: string; url: string; lang: string; description: string }>;
+}
+
 export interface OpmlImportResult {
   imported: number;
   skipped: number;
@@ -360,6 +369,8 @@ export const api = {
   addMutedKeyword: (keyword: string) =>
     request<MutedKeyword>("/filters/muted", { method: "POST", body: JSON.stringify({ keyword }) }),
   deleteMutedKeyword: (id: number) => request<void>(`/filters/muted/${id}`, { method: "DELETE" }),
+
+  feedLists: (language: string) => request<{ lists: FeedList[] }>(`/v1/feed-lists?lang=${encodeURIComponent(language)}`),
 
   listDevices: () => request<Device[]>("/v1/devices"),
   createPairingCode: () => request<PairingCode>("/v1/pairing-codes", { method: "POST" }),

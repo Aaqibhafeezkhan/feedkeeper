@@ -1,15 +1,16 @@
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { api, ApiError, type Feed } from "../../api/client.ts";
-import { resolveOnboarding, resolveStarterPacks, type ResolvedStarterPack } from "../../extensions/host.ts";
+import { api, ApiError, type Feed, type FeedList } from "../../api/client.ts";
+import { resolveOnboarding, resolveStarterPacks } from "../../extensions/host.ts";
 import { useExtensions } from "../../extensions/useExtensions.ts";
-import { BUILT_IN_STARTER_PACKS, feedsForLanguage } from "../../onboarding/starterPacks.ts";
+import { feedsForLanguage, feedsInAllLanguages } from "../../onboarding/feedLists.ts";
 import { toast } from "../../utils/toast.ts";
 import { AddFeedPanel } from "../feeds/AddFeedPanel.tsx";
 import { UploadIcon } from "../feeds/icons.tsx";
 import { ExtensionMount } from "../settings/ExtensionMount.tsx";
 import { PlanNotice } from "../PlanNotice.tsx";
 import { usePlanLimits } from "../../utils/planLimits.ts";
+import { PackIcon } from "./PackIcon.tsx";
 
 interface Progress { done: number; total: number }
 
@@ -24,7 +25,7 @@ async function folderIdFor(name: string): Promise<number | null> {
 }
 
 /**
- * What a person without feeds sees: add a site by its address, pick a starter pack or import a subscription file.
+ * What a person without feeds sees: add a site by its address, pick feeds from the lists or import a subscription file.
  * Used on the articles page and on the feeds page, so both lead to the same first steps.
  */
 export function Welcome({ onSubscribed }: { onSubscribed: () => void | Promise<void> }) {
@@ -33,53 +34,89 @@ export function Welcome({ onSubscribed }: { onSubscribed: () => void | Promise<v
   const extensions = useExtensions();
   const hostWelcome = resolveOnboarding(extensions);
   const language = i18n.resolvedLanguage || "en";
+  const [serverLists, setServerLists] = useState<FeedList[]>([]);
+  const [allLanguages, setAllLanguages] = useState(false);
   const packs = useMemo(
-    () => resolveStarterPacks(extensions, BUILT_IN_STARTER_PACKS, language)
-      .map((pack) => ({ ...pack, feeds: feedsForLanguage(pack, language) }))
+    () => resolveStarterPacks(extensions, serverLists, language)
+      .map((pack) => ({ ...pack, feeds: allLanguages ? feedsInAllLanguages(pack, language) : feedsForLanguage(pack, language) }))
       .filter((pack) => pack.feeds.length > 0),
-    [extensions, language],
+    [extensions, serverLists, language, allLanguages],
   );
   const [openPack, setOpenPack] = useState<string | null>(null);
-  const [unchecked, setUncheckedFeeds] = useState<Set<string>>(new Set());
+  // The chosen addresses over all lists, so feeds from different lists can be added together.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState<Progress | null>(null);
   const [importing, setImporting] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const pack = packs.find((entry) => entry.id === openPack) ?? null;
-  const chosen = pack ? pack.feeds.filter((feed) => !unchecked.has(feed.url)) : [];
+  const pack = packs.find((entry) => entry.id === openPack) ?? packs[0] ?? null;
+  const chosenCount = packs.reduce((sum, entry) => sum + entry.feeds.filter((feed) => selected.has(feed.url)).length, 0);
+  const allOfPackChosen = pack !== null && pack.feeds.every((feed) => selected.has(feed.url));
+
+  useEffect(() => {
+    let current = true;
+    api.feedLists(language).then(
+      (response) => { if (current) setServerLists(response.lists); },
+      // Without the server's lists the host's own packs and the other ways to add feeds still work.
+      () => { if (current) setServerLists([]); },
+    );
+    return () => { current = false; };
+  }, [language]);
 
   function toggleFeed(url: string) {
-    setUncheckedFeeds((current) => {
+    setSelected((current) => {
       const next = new Set(current);
       if (!next.delete(url)) next.add(url);
       return next;
     });
   }
 
-  async function subscribeChosen(selected: ResolvedStarterPack) {
-    const feeds = selected.feeds.filter((feed) => !unchecked.has(feed.url));
-    if (feeds.length === 0) return;
-    setProgress({ done: 0, total: feeds.length });
-    const folderId = await folderIdFor(selected.title);
+  function toggleAllOfPack() {
+    if (!pack) return;
+    setSelected((current) => {
+      const next = new Set(current);
+      for (const feed of pack.feeds) {
+        if (allOfPackChosen) next.delete(feed.url);
+        else next.add(feed.url);
+      }
+      return next;
+    });
+  }
+
+  async function subscribeChosen() {
+    const jobs: Array<{ url: string; folderName: string }> = [];
+    for (const entry of packs) {
+      for (const feed of entry.feeds) if (selected.has(feed.url)) jobs.push({ url: feed.url, folderName: entry.title });
+    }
+    if (jobs.length === 0) return;
+    setProgress({ done: 0, total: jobs.length });
+    const folderIds = new Map<string, number | null>();
+    for (const name of new Set(jobs.map((job) => job.folderName))) folderIds.set(name, await folderIdFor(name));
     let added = 0;
     let failed = 0;
     let finished = 0;
+    const done = new Set<string>();
     // A few at a time: every address is fetched once to check it, and a slow site must not hold up the others.
-    const queue = [...feeds];
+    const queue = [...jobs];
     const worker = async () => {
-      for (let feed = queue.shift(); feed; feed = queue.shift()) {
+      for (let job = queue.shift(); job; job = queue.shift()) {
         try {
-          await api.subscribeFeed(feed.url, null, folderId);
+          await api.subscribeFeed(job.url, null, folderIds.get(job.folderName) ?? null);
           added++;
+          done.add(job.url);
         } catch (error) {
           // A feed that is subscribed to already is as good as added.
-          if (error instanceof ApiError && error.code === "already_subscribed") added++;
-          else failed++;
+          if (error instanceof ApiError && error.code === "already_subscribed") {
+            added++;
+            done.add(job.url);
+          } else failed++;
         }
-        setProgress({ done: ++finished, total: feeds.length });
+        setProgress({ done: ++finished, total: jobs.length });
       }
     };
-    await Promise.all(Array.from({ length: Math.min(3, feeds.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(3, jobs.length) }, worker));
     setProgress(null);
+    // What went wrong stays chosen, so it can be tried again.
+    setSelected((current) => new Set([...current].filter((url) => !done.has(url))));
     if (failed > 0) toast.error(t("welcome.packPartial", { added, failed }));
     else toast.success(t("welcome.packAdded", { count: added }));
     if (added > 0) await onSubscribed();
@@ -112,54 +149,6 @@ export function Welcome({ onSubscribed }: { onSubscribed: () => void | Promise<v
   // An account whose plan does not include adding feeds gets the reason instead of the first steps.
   if (!syncAllowed) return <PlanNotice />;
 
-  function PackIcon({ id }: { id: string }) {
-    switch (id) {
-      case "news":
-        return (
-          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
-            <path d="M18 14h-8" />
-            <path d="M15 18h-5" />
-            <path d="M10 6h8v4h-8V6Z" />
-          </svg>
-        );
-      case "technology":
-        return (
-          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <rect width="20" height="14" x="2" y="3" rx="2" />
-            <line x1="8" x2="16" y1="21" y2="21" />
-            <line x1="12" x2="12" y1="17" y2="21" />
-          </svg>
-        );
-      case "apple":
-        return (
-          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.93-2.85-.9.04-1.99.6-2.63 1.35-.57.65-1.07 1.71-.93 2.73.99.08 2.02-.48 2.63-1.23Z" />
-          </svg>
-        );
-      case "science":
-        return (
-          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2" />
-            <path d="M8.5 2h7" />
-            <path d="M7 16h10" />
-          </svg>
-        );
-      case "design":
-        return (
-          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
-            <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
-            <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
-            <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
-            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2Z" />
-          </svg>
-        );
-      default:
-        return null;
-    }
-  }
-
   return (
     <section className="card flex flex-col gap-6 p-5 sm:p-7 shadow-xs" aria-labelledby="welcome-title">
       <div className="flex flex-col gap-2">
@@ -190,43 +179,64 @@ export function Welcome({ onSubscribed }: { onSubscribed: () => void | Promise<v
               <p className="text-xs sm:text-sm text-[var(--c-text-muted)] mt-1 ml-9.5">{t("welcome.packsHint")}</p>
             </div>
             <div className="flex flex-wrap gap-2" role="group" aria-label={t("welcome.packsTitle")}>
-              {packs.map((entry) => (
-                <button
-                  key={entry.id}
-                  type="button"
-                  aria-pressed={openPack === entry.id}
-                  disabled={busy}
-                  onClick={() => { setOpenPack(openPack === entry.id ? null : entry.id); setUncheckedFeeds(new Set()); }}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold cursor-pointer transition-all ${
-                    openPack === entry.id
-                      ? "border-[var(--c-blue1)] bg-[var(--c-blue1)] text-white shadow-xs"
-                      : "border-[var(--c-border)] bg-[var(--c-surface)] hover:border-[var(--c-blue3)] hover:bg-[var(--c-surface-hover)] text-[var(--c-text)]"
-                  }`}
-                >
-                  <PackIcon id={entry.id} />
-                  <span>{entry.title}</span>
-                </button>
-              ))}
+              {packs.map((entry) => {
+                const count = entry.feeds.filter((feed) => selected.has(feed.url)).length;
+                const active = pack?.id === entry.id;
+                return (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    aria-pressed={active}
+                    disabled={busy}
+                    onClick={() => setOpenPack(entry.id)}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold cursor-pointer transition-all ${
+                      active
+                        ? "border-[var(--c-blue1)] bg-[var(--c-blue1)] text-white shadow-xs"
+                        : "border-[var(--c-border)] bg-[var(--c-surface)] hover:border-[var(--c-blue3)] hover:bg-[var(--c-surface-hover)] text-[var(--c-text)]"
+                    }`}
+                  >
+                    <PackIcon id={entry.id} />
+                    <span>{entry.title}</span>
+                    {count > 0 && (
+                      <span className={`rounded-full px-1.5 text-[0.625rem] font-bold leading-4 ${active ? "bg-white/25 text-white" : "bg-[var(--c-blue1)] text-white"}`}>{count}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
             {pack && (
               <div className="flex flex-col gap-3 pt-2 animate-fade-in border-t border-[var(--c-border)]/60">
-                {pack.description && <p className="text-xs sm:text-sm text-[var(--c-text-muted)]">{pack.description}</p>}
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                  {pack.description && <p className="text-xs sm:text-sm text-[var(--c-text-muted)]">{pack.description}</p>}
+                  <button type="button" disabled={busy} onClick={toggleAllOfPack} className="text-xs sm:text-sm font-semibold text-[var(--c-blue1)] cursor-pointer hover:underline">
+                    {allOfPackChosen ? t("welcome.deselectAll") : t("welcome.selectAll")}
+                  </button>
+                </div>
                 <ul className="divide-y divide-[var(--c-border)] rounded-xl border border-[var(--c-border)] bg-[var(--c-surface)]">
                   {pack.feeds.map((feed) => (
                     <li key={feed.url}>
-                      <label className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 hover:bg-[var(--c-surface-hover)]/50 transition-colors">
-                        <input type="checkbox" checked={!unchecked.has(feed.url)} disabled={busy} onChange={() => toggleFeed(feed.url)} className="rounded accent-[var(--c-blue1)]" />
-                        <span className="min-w-0 flex-1 truncate text-xs sm:text-sm font-medium">{feed.title}</span>
+                      <label className="flex cursor-pointer items-start gap-3 px-3.5 py-2.5 hover:bg-[var(--c-surface-hover)]/50 transition-colors">
+                        <input type="checkbox" checked={selected.has(feed.url)} disabled={busy} onChange={() => toggleFeed(feed.url)} className="mt-0.5 rounded accent-[var(--c-blue1)]" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs sm:text-sm font-medium">{feed.title}</span>
+                          {feed.description && <span className="block text-xs text-[var(--c-text-muted)] leading-snug">{feed.description}</span>}
+                        </span>
                         {feed.lang && <span className="shrink-0 text-[0.625rem] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--c-surface-hover)] text-[var(--c-text-muted)]">{feed.lang}</span>}
                       </label>
                     </li>
                   ))}
                 </ul>
-                <button type="button" disabled={busy || chosen.length === 0} onClick={() => void subscribeChosen(pack)} className="btn-primary self-start text-xs sm:text-sm font-semibold px-4 py-2">
-                  {progress ? t("welcome.subscribingProgress", { done: progress.done, total: progress.total }) : t("welcome.subscribePack", { count: chosen.length })}
-                </button>
               </div>
             )}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <button type="button" disabled={busy || chosenCount === 0} onClick={() => void subscribeChosen()} className="btn-primary self-start text-xs sm:text-sm font-semibold px-4 py-2">
+                {progress ? t("welcome.subscribingProgress", { done: progress.done, total: progress.total }) : t("welcome.subscribePack", { count: chosenCount })}
+              </button>
+              <label className="inline-flex items-center gap-2 text-xs sm:text-sm text-[var(--c-text-muted)] cursor-pointer">
+                <input type="checkbox" checked={allLanguages} disabled={busy} onChange={(event) => setAllLanguages(event.target.checked)} className="rounded accent-[var(--c-blue1)]" />
+                {t("welcome.allLanguages")}
+              </label>
+            </div>
           </div>
         )}
 

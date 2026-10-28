@@ -60,7 +60,7 @@ export interface StarterPackExtension {
   id: string;
   title: Localized;
   description?: Localized;
-  feeds: Array<{ title: string; url: string; lang?: string }>;
+  feeds: Array<{ title: string; url: string; lang?: string; description?: Localized }>;
 }
 
 export interface OnboardingExtension {
@@ -211,7 +211,7 @@ export interface ResolvedStarterPack {
   id: string;
   title: string;
   description: string;
-  feeds: Array<{ title: string; url: string; lang: string }>;
+  feeds: Array<{ title: string; url: string; lang: string; description: string }>;
 }
 
 /** Only `http(s)` addresses without credentials can be subscribed to. */
@@ -229,12 +229,12 @@ function feedAddress(value: unknown): string | null {
  * The starter packs the host adds to the built-in ones, or, with `replace: true`, instead of them. Packs and feeds
  * that are malformed are left out; at most 12 packs of 20 feeds.
  */
-export function resolveStarterPacks<T extends { id: string; title: Localized; description?: Localized; feeds: Array<{ title: string; url: string; lang?: string }> }>(
+export function resolveStarterPacks<T extends { id: string; title: Localized; description?: Localized; feeds: Array<{ title: string; url: string; lang?: string; description?: Localized }> }>(
   extensions: unknown, builtIn: T[], language: string,
 ): ResolvedStarterPack[] {
   const host = isObject(extensions) && isObject(extensions.starterPacks) ? extensions.starterPacks : {};
   const own = Array.isArray(host.packs) ? host.packs : [];
-  const byId = new Map<string, { id: string; title: Localized; description?: Localized; feeds: Array<{ title: string; url: string; lang?: string }> }>();
+  const byId = new Map<string, StarterPackExtension>();
   if (host.replace !== true) for (const pack of builtIn) byId.set(pack.id, pack);
   for (const candidate of own.slice(0, 12)) {
     if (!isObject(candidate) || typeof candidate.id !== "string" || !ID_PATTERN.test(candidate.id) || !Array.isArray(candidate.feeds)) continue;
@@ -248,7 +248,14 @@ export function resolveStarterPacks<T extends { id: string; title: Localized; de
     for (const feed of pack.feeds.slice(0, 20)) {
       if (!isObject(feed) || !isText(feed.title, 80)) continue;
       const url = feedAddress(feed.url);
-      if (url) feeds.push({ title: feed.title, url, lang: typeof feed.lang === "string" ? feed.lang.toLowerCase().split("-")[0] : "" });
+      if (!url) continue;
+      const description = pickLocalized(feed.description, language);
+      feeds.push({
+        title: feed.title,
+        url,
+        lang: typeof feed.lang === "string" ? feed.lang.toLowerCase().split("-")[0] : "",
+        description: description && isText(description, 200) ? description : "",
+      });
     }
     if (feeds.length > 0) packs.push({ id: pack.id, title, description: pickLocalized(pack.description, language) ?? "", feeds });
   }
