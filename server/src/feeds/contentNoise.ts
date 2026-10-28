@@ -1,6 +1,7 @@
 import { JSDOM } from "jsdom";
 import { CONSENT_ANCHORS, CONSENT_COMPANIONS } from "./content/patterns/consent/index.js";
 import { resolveEmbeds } from "./content/embeds/index.js";
+import { teaserLinks } from "./content/noise/teaserLinks.js";
 import { type NoiseStats, flat, pruneEmpty } from "./content/shared.js";
 
 export type { NoiseStats };
@@ -87,6 +88,9 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
     stats[rule] = (stats[rule] ?? 0) + 1;
     changed = true;
   };
+
+  // A feed's own text ends with "[mehr]": the link to the article is no part of what is read.
+  if (teaserLinks.apply(root, stats)) changed = true;
 
   for (const selector of BREADCRUMB_MARKERS) {
     try { root.querySelectorAll(selector).forEach(element => drop(element, "breadcrumb")); } catch { /* selector unsupported by the DOM */ }
@@ -594,6 +598,8 @@ const SNIPPET_INLINE_PATTERNS: RegExp[] = [
   /\s*(Der|Die|Das) Beitrag [^\n]+? (erschien|wurde) zuerst (auf|bei|beim) [^\n]*?\.(?=\s|$)(\s*(Folge uns auch auf|Über unseren Newsletter)[^\n]*?\.(?=\s|$))*/gi,
   /\s*Über unseren Newsletter [^\n]*?\.(?=\s|$)/gi,
   /\s*The post [^\n]+? appeared first on [^\n]*?\.(?=\s|$)/gi,
+  // "Titel[mehr]": a feed ends its summary with the words of the link to the article.
+  /\s*[[(«]\s*(mehr|mehr lesen|weiterlesen|more|read more|continue reading|続きを読む|もっと見る)\s*[\])»]\s*$/gim,
 ];
 
 /**

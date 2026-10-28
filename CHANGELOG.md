@@ -5,6 +5,7 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 ## [Unreleased]
 
 ### Added
+- Content rule `teaser-links` removes a link that only says "more" or "continue reading" at the end of a text, with its brackets ("Titel[mehr]"), in the reader and in the lead. A summary that is only the title and such a link no longer shows up as text.
 - Feed discovery knows the feed addresses of platforms that do not announce them on the page: a subreddit or Reddit user, a Medium writer or publication, a YouTube playlist and a show on Apple Podcasts (found through Apple's lookup service).
 
 ## [0.34.0] - 2026-10-28
