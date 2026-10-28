@@ -4,6 +4,9 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+- Feed discovery knows the feed addresses of platforms that do not announce them on the page: a subreddit or Reddit user, a Medium writer or publication, a YouTube playlist and a show on Apple Podcasts (found through Apple's lookup service).
+
 ## [0.34.0] - 2026-10-28
 
 ### Added

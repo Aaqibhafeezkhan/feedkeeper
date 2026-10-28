@@ -2,6 +2,7 @@ import Parser from "rss-parser";
 import { fetchFeed } from "./fetcher.js";
 import { assertPublicFeedUrl } from "./blockedHosts.js";
 import { decodeEntities, plainTitle } from "./text.js";
+import { applePodcastId, feedUrlFromAppleLookup, platformFeedCandidates } from "./platformFeeds.js";
 
 const rssParser = new Parser();
 
@@ -79,6 +80,26 @@ async function keepRealFeeds(candidates: DiscoveredFeed[], pageUrl: string): Pro
   });
 }
 
+/** Feeds that a platform's page address implies, for the platforms that do not announce them on the page. */
+async function platformFeed(url: URL): Promise<DiscoveredFeed | null> {
+  const candidates = platformFeedCandidates(url);
+  const podcastId = applePodcastId(url);
+  if (podcastId) {
+    try {
+      const lookup = await fetchFeed(`https://itunes.apple.com/lookup?id=${podcastId}&entity=podcast`);
+      const feedUrl = feedUrlFromAppleLookup(lookup.body);
+      if (feedUrl) candidates.push((await assertPublicFeedUrl(feedUrl)).toString());
+    } catch {
+      // The lookup is a convenience; the page itself is tried next.
+    }
+  }
+  for (const candidate of candidates) {
+    const { feed } = await parseFeedAt(candidate);
+    if (feed) return feed;
+  }
+  return null;
+}
+
 /**
  * Given a URL, determines if it is already a direct RSS/Atom feed
  * or if it is an HTML page that links to one or more feeds (auto-discovery).
@@ -86,6 +107,10 @@ async function keepRealFeeds(candidates: DiscoveredFeed[], pageUrl: string): Pro
 export async function discoverFeeds(inputUrl: string): Promise<DiscoveredFeed[]> {
   const validated = await assertPublicFeedUrl(inputUrl);
   const targetUrl = validated.toString();
+
+  // 0. Platforms whose feed address follows from the page address (and which often hide the page from us).
+  const fromPlatform = await platformFeed(validated);
+  if (fromPlatform) return [fromPlatform];
 
   // 1. The URL is already a feed.
   const page = await parseFeedAt(targetUrl);
