@@ -45,7 +45,6 @@ export const BUILT_IN_FEED_LISTS: FeedListData[] = [
       { title: "The Guardian", url: "https://www.theguardian.com/world/rss", lang: "en", description: { en: "International reporting from the British daily.", de: "Internationale Berichte der britischen Tageszeitung.", ja: "英国の日刊紙による国際報道。" } },
       { title: "NPR News", url: "https://feeds.npr.org/1001/rss.xml", lang: "en", description: { en: "US news from public radio.", de: "Nachrichten aus den USA vom öffentlichen Radio.", ja: "米国の公共ラジオによるニュース。" } },
       { title: "NHK", url: "https://www.nhk.or.jp/rss/news/cat0.xml", lang: "ja", description: { en: "Main news from Japan's public broadcaster.", de: "Hauptnachrichten des japanischen Rundfunks.", ja: "NHKの主要ニュース。" } },
-      { title: "朝日新聞", url: "https://www.asahi.com/rss/asahi/newsheadlines.rdf", lang: "ja", description: { en: "Headlines from a major Japanese daily.", de: "Schlagzeilen einer großen japanischen Tageszeitung.", ja: "朝日新聞デジタルの最新ニュース。" } },
     ],
   },
   {
@@ -120,7 +119,6 @@ export const BUILT_IN_FEED_LISTS: FeedListData[] = [
     description: { en: "Web design, interfaces and creative work.", de: "Webdesign, Oberflächen und kreative Arbeit.", ja: "ウェブデザイン、UI、クリエイティブ。" },
     feeds: [
       { title: "Smashing Magazine", url: "https://www.smashingmagazine.com/feed/", lang: "en", description: { en: "Practical guides for designers and front-end developers.", de: "Praxisnahe Anleitungen für Designer und Frontend-Entwickler.", ja: "デザイナーとフロントエンド開発者向けの実践ガイド。" } },
-      { title: "A List Apart", url: "https://alistapart.com/main/feed/", lang: "en", description: { en: "Thoughtful essays on web standards and design.", de: "Fundierte Essays zu Webstandards und Gestaltung.", ja: "ウェブ標準とデザインに関する考察。" } },
       { title: "UX Collective", url: "https://uxdesign.cc/feed", lang: "en", description: { en: "Stories on user experience and product design.", de: "Beiträge zu User Experience und Produktdesign.", ja: "UXとプロダクトデザインの記事。" } },
       { title: "Creative Bloq", url: "https://www.creativebloq.com/feeds/all", lang: "en", description: { en: "Inspiration, tutorials and tools for creatives.", de: "Inspiration, Tutorials und Werkzeuge für Kreative.", ja: "クリエイター向けのインスピレーションとチュートリアル。" } },
       { title: "designboom", url: "https://www.designboom.com/feed/", lang: "en", description: { en: "Architecture, art and product design from around the world.", de: "Architektur, Kunst und Produktdesign aus aller Welt.", ja: "世界の建築、アート、プロダクトデザイン。" } },
@@ -141,7 +139,6 @@ export const BUILT_IN_FEED_LISTS: FeedListData[] = [
       { title: "Polygon", url: "https://www.polygon.com/rss/index.xml", lang: "en", description: { en: "Games, their makers and their communities.", de: "Spiele, ihre Macher und ihre Communities.", ja: "ゲームとその作り手、コミュニティ。" } },
       { title: "Rock Paper Shotgun", url: "https://www.rockpapershotgun.com/feed", lang: "en", description: { en: "PC gaming with a sharp, personal voice.", de: "PC-Spiele mit pointierter, persönlicher Stimme.", ja: "個性的な視点で語るPCゲーム媒体。" } },
       { title: "4Gamer.net", url: "https://www.4gamer.net/rss/index.xml", lang: "ja", description: { en: "Japan's PC and online game news.", de: "PC- und Online-Spiele-News aus Japan.", ja: "PC・オンラインゲームの最新情報。" } },
-      { title: "Game*Spark", url: "https://www.gamespark.jp/rss/index.rdf", lang: "ja", description: { en: "News on games and the industry.", de: "Nachrichten zu Spielen und zur Branche.", ja: "ゲームと業界のニュース。" } },
       { title: "AUTOMATON", url: "https://automaton-media.com/feed/", lang: "ja", description: { en: "Game news and interviews from Japan.", de: "Spiele-News und Interviews aus Japan.", ja: "ゲームのニュースとインタビュー。" } },
     ],
   },
@@ -185,7 +182,6 @@ export const BUILT_IN_FEED_LISTS: FeedListData[] = [
       { title: "Pitchfork", url: "https://pitchfork.com/feed/feed-news/rss", lang: "en", description: { en: "Music news and album reviews.", de: "Musiknachrichten und Albumkritiken.", ja: "音楽ニュースとアルバムレビュー。" } },
       { title: "The Marginalian", url: "https://www.themarginalian.org/feed/", lang: "en", description: { en: "Essays on art, science and the examined life.", de: "Essays über Kunst, Wissenschaft und das Nachdenken.", ja: "アートと科学、人生をめぐるエッセイ。" } },
       { title: "CINRA", url: "https://www.cinra.net/feed", lang: "ja", description: { en: "Art, music and culture in Japan.", de: "Kunst, Musik und Kultur aus Japan.", ja: "アート、音楽、カルチャーの話題。" } },
-      { title: "シネマカフェ", url: "https://www.cinemacafe.net/rss/index.xml", lang: "ja", description: { en: "Film and entertainment news.", de: "Film- und Unterhaltungsnachrichten.", ja: "映画とエンタメのニュース。" } },
     ],
   },
 ];
