@@ -4,8 +4,11 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+- A feed with one empty `<guid/>` element (NASA) could not be saved at all: the element is read as an object, which the database refused, so the whole feed failed. Such an item is now identified by its link or title.
+
 ### Added
-- Summaries and leads lose more clutter that feeds put in front of or behind the text: a value a generator printed for nothing ("None", "null"), the date line some content systems print under the headline ("Wed, 10/28/2026 - 15:00"), the credit of the picture ahead of the summary ("Source: Apple."), the reference line of a journal abstract ("Published online: …; doi:…"), Medium's "Continue reading on … »" and a note that the page carries affiliate links. Stored leads are derived again.
+- Summaries and leads lose more clutter that feeds put in front of or behind the text: a value a generator printed for nothing ("None", "null"), the date line some content systems print under the headline ("Wed, 10/28/2026 - 15:00"), the credit of the picture ahead of the summary ("Source: Apple."), the reference line of a journal abstract ("Published online: …; doi:…"), Medium's "Continue reading on … »" and a note that the page carries affiliate links. A lead taken from the article text goes through the same clean-up as a summary, and a text that is only the headline, the author and a date stamp has no lead. Stored leads are derived again.
 - Content rule `teaser-links` removes a link that only says "more" or "continue reading" at the end of a text, with its brackets ("Titel[mehr]"), in the reader and in the lead. A summary that is only the title and such a link no longer shows up as text.
 - Feed discovery knows the feed addresses of platforms that do not announce them on the page: a subreddit or Reddit user, a Medium writer or publication, a YouTube playlist and a show on Apple Podcasts (found through Apple's lookup service).
 

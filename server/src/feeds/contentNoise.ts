@@ -620,6 +620,8 @@ const SNIPPET_INLINE_PATTERNS: RegExp[] = [
   /^[^\n]{0,40}Published (online|in print):\s*[^;\n]{4,30};\s*doi:\S+\s*/gim,
   // Medium: "Continue reading on Name »".
   /\s*Continue reading on [^\n»]{2,60}»\s*$/gim,
+  // The notice that the page carries affiliate links, as the first sentence of a text.
+  /^※?\s*(本ページ|当サイト|この記事|本記事)[^。\n]{0,40}(アフィリエイト|広告|プロモーション)[^。\n]*。\s*/gm,
   /\s*[[(«]\s*(mehr|mehr lesen|weiterlesen|more|read more|continue reading|続きを読む|もっと見る)\s*[\])»]\s*$/gim,
 ];
 
@@ -656,9 +658,22 @@ function shorten(text: string, max: number): string {
  * The beginning of an article as one plain line, for teasers: the cleaned body, or the cleaned feed summary when
  * that says more (a failed download leaves only the summary).
  */
+const DATE_STAMP = /\s*(Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+\d{1,2}\/\d{1,2}\/\d{4}\s*[-–]\s*\d{1,2}:\d{2}\s*$/;
+const HUMAN_NAME = /^\p{Lu}[\p{L}'’.-]+(\s+\p{Lu}[\p{L}'’.-]+){1,3}$/u;
+
+/** A text that is the headline, the author and a date stamp ("Titel Saskia Trebing Wed, 10/28/2026 - 15:00") says nothing beyond the headline. */
+function withoutHeadlineEcho(text: string, title: string | null | undefined): string {
+  const headline = (title ?? "").trim();
+  if (!headline || !text.startsWith(headline) || !DATE_STAMP.test(text)) return text;
+  const rest = text.slice(headline.length).replace(DATE_STAMP, "").trim();
+  return rest === "" || HUMAN_NAME.test(rest) ? "" : text;
+}
+
 export function leadText(parts: { html?: string | null; snippet?: string | null; title?: string | null }, max = LEAD_LENGTH): string {
   const body = derivedText(parts.html, parts.title);
   const summary = flat(cleanSnippet(parts.snippet, parts.title));
-  const lead = shorten(body.length >= summary.length ? body : summary, max);
+  const chosen = withoutHeadlineEcho(body.length >= summary.length ? body : summary, parts.title);
+  // What is shown has gone through the same clean-up as a summary, whichever of the two it came from.
+  const lead = shorten(flat(cleanSnippet(chosen, parts.title)), max);
   return PLACEHOLDER.test(lead) ? "" : lead;
 }

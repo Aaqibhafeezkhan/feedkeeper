@@ -126,6 +126,15 @@ function extractImageUrl(item: CustomItem): string | null {
   return null;
 }
 
+/**
+ * What identifies an item: its guid, or else its link or title. A guid element without text (`<guid isPermaLink="false"/>`) is read as an
+ * object, and one such entry must not make the whole feed unreadable.
+ */
+export function itemGuid(item: { guid?: unknown; link?: string; title?: string }): string {
+  if (typeof item.guid === "string" && item.guid !== "") return item.guid;
+  return item.link || item.title || crypto.randomUUID();
+}
+
 /** The article address: its link, or its guid when the feed gives only that and the guid is a web address. */
 export function itemLink(item: { link?: string; guid?: string }): string | undefined {
   if (item.link) return item.link;
@@ -142,7 +151,7 @@ async function pollAttempt(feed: Feed, signal: AbortSignal): Promise<PollResult>
   // Recheck hosted capabilities after network I/O, before committing or sending notifications.
   if (!feedHasActiveSubscriber(feed.id)) return { newItems: 0, error: "feed_poll_not_allowed" };
   const items = parsed?.items.map(item => ({
-    guid: item.guid ?? item.link ?? item.title ?? crypto.randomUUID(),
+    guid: itemGuid(item),
     title: plainTitle(item.title), link: itemLink(item),
     contentSnippet: decodeEntities(item.contentSnippet ?? item.content) ?? undefined,
     contentHtml: item.contentEncoded ?? item["content:encoded"] ?? item.content ?? null,

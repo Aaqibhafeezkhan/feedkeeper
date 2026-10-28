@@ -38,3 +38,10 @@ test("summaries lose placeholders, date stamps, picture credits, and journal ref
   // The affiliate notice is the page's, not the story's.
   assert.equal(cleanSnippet("※本ページは、アフィリエイト広告を含みます\n新しいツールを紹介します。", title), "新しいツールを紹介します。");
 });
+
+test("a lead from the text goes through the same clean-up as a summary", () => {
+  assert.equal(leadText({ html: "<p>Nature, Published online: 28 October 2026; doi:10.1038/d41586-026-02202-3 A jury weighs in.</p>", title: "Teaching" }), "A jury weighs in.");
+  assert.equal(leadText({ html: "<span>Warum hassen alle die 90er-Schau?</span> <span>Saskia Trebing</span> <span>Wed, 10/28/2026 - 15:00</span>", title: "Warum hassen alle die 90er-Schau?" }), "");
+  assert.equal(leadText({ html: "<p>※本ページは、アフィリエイト広告を利用しています。新しいツールを紹介します。</p>", title: "ツール" }), "新しいツールを紹介します。");
+  assert.equal(leadText({ html: "<p>Der Stadtrat beschließt. Saskia Trebing sagt dazu mehr.</p>", title: "Stadtrat" }), "Der Stadtrat beschließt. Saskia Trebing sagt dazu mehr.");
+});
