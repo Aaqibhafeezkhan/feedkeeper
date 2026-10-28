@@ -42,6 +42,7 @@ Most contributions are a pattern in one of the files under `patterns/`:
 - A social platform or audio player: `patterns/social-platforms.ts` (host, path of a single post, kind).
 - A heading or markup that introduces a list of other articles: `patterns/sidebars/`.
 - The label of a play-button picture: `patterns/play-labels/`.
+- The label of a block that a script fills, such as "wird geladen …" or "Loading…": `patterns/loading/`.
 
 To support a new language, add a file next to the existing ones and list it in the folder's `index.ts`. Every language
 is searched at once, because an article in one language can sit on a site in another.
