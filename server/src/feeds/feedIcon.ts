@@ -45,9 +45,13 @@ export function canAccessFeed(userId: number, feedId: number): boolean {
   );
 }
 
-function candidates(feed: { icon_url: string | null; site_url: string | null; url: string }, declaredUrls: string[]): string[] {
+/**
+ * Declared icons first, then the stored one, then the well-known files of the site, and last the feed's own logo (`<image>` of an RSS channel):
+ * a channel logo is often a wide or transparent banner and no icon, so it only serves when the site offers nothing better.
+ */
+function candidates(feed: { icon_url: string | null; site_url: string | null; url: string }, declaredUrls: string[], logoUrls: string[]): string[] {
   const urls = new Set<string>(declaredUrls);
-  if (feed.icon_url) urls.add(feed.icon_url);
+  if (feed.icon_url && !logoUrls.includes(feed.icon_url)) urls.add(feed.icon_url);
   for (const source of [feed.site_url, feed.url]) {
     try {
       if (source) {
@@ -59,6 +63,7 @@ function candidates(feed: { icon_url: string | null; site_url: string | null; ur
       // Try the next source.
     }
   }
+  for (const url of logoUrls) urls.add(url);
   return [...urls];
 }
 
@@ -164,25 +169,25 @@ export function storeFeedIcon(feedId: number, buffer: Buffer, mime: string): Fee
 
 /** Re-check remote candidates during the weekly feed poll, even if a stored icon exists. */
 const refreshing = new Map<number, Promise<FeedIcon | null>>();
-export function refreshFeedIcon(feedId: number, siteUrl?: string | null, declaredUrls: string[] = [], signal?: AbortSignal): Promise<FeedIcon | null> {
+export function refreshFeedIcon(feedId: number, siteUrl?: string | null, declaredUrls: string[] = [], signal?: AbortSignal, logoUrls: string[] = []): Promise<FeedIcon | null> {
   const current = refreshing.get(feedId);
   if (current) return current;
   if (refreshing.size >= readPollSettings().maxWaiters) return Promise.resolve(null);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(new DOMException("Icon deadline exceeded", "TimeoutError")), readPollSettings().attemptTimeoutMs);
   const deadline = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal;
-  const promise = refreshIcon(feedId, siteUrl, declaredUrls, deadline).finally(() => {
+  const promise = refreshIcon(feedId, siteUrl, declaredUrls, deadline, logoUrls).finally(() => {
     clearTimeout(timeout);
     refreshing.delete(feedId);
   });
   refreshing.set(feedId, promise);
   return promise;
 }
-async function refreshIcon(feedId: number, siteUrl: string | null | undefined, declaredUrls: string[], signal: AbortSignal): Promise<FeedIcon | null> {
+async function refreshIcon(feedId: number, siteUrl: string | null | undefined, declaredUrls: string[], signal: AbortSignal, logoUrls: string[]): Promise<FeedIcon | null> {
   const feed = db.prepare<[number], { icon_url: string | null; site_url: string | null; url: string }>(
     "SELECT icon_url, site_url, url FROM feeds WHERE id = ?",
   ).get(feedId);
-  for (const url of feed ? candidates({ ...feed, site_url: siteUrl ?? feed.site_url }, declaredUrls) : []) {
+  for (const url of feed ? candidates({ ...feed, site_url: siteUrl ?? feed.site_url }, declaredUrls, logoUrls) : []) {
     if (signal.aborted) break;
     try {
       const { buffer } = await fetchImage(url, MAX_ICON_BYTES, signal);

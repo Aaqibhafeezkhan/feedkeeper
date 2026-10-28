@@ -52,21 +52,22 @@ const parser = new Parser<CustomFeed, CustomItem>({
   },
 });
 
-function extractFeedIconUrls(parsed: CustomFeed | null, baseUrl: string): string[] {
-  if (!parsed) return [];
-  const urls: string[] = [];
-  for (const raw of [parsed.icon, parsed.image?.url]) {
-    if (typeof raw !== "string" || !raw.trim()) continue;
+/** The feed's own addresses: `icon` is meant as an icon, the `image` of an RSS channel is its logo and ranks below the site's icon files. */
+function extractFeedIconUrls(parsed: CustomFeed | null, baseUrl: string): { icons: string[]; logos: string[] } {
+  const result = { icons: [] as string[], logos: [] as string[] };
+  if (!parsed) return result;
+  const read = (raw: unknown, into: string[]) => {
+    if (typeof raw !== "string" || !raw.trim()) return;
     try {
       const resolved = new URL(raw.trim(), baseUrl);
-      if (resolved.protocol === "https:" || resolved.protocol === "http:") {
-        urls.push(resolved.toString());
-      }
+      if (resolved.protocol === "https:" || resolved.protocol === "http:") into.push(resolved.toString());
     } catch {
       // Ignore malformed feed icon URLs.
     }
-  }
-  return urls;
+  };
+  read(parsed.icon, result.icons);
+  read(parsed.image?.url, result.logos);
+  return result;
 }
 
 function cleanImageUrl(url: string): string {
@@ -170,7 +171,7 @@ async function pollAttempt(feed: Feed, signal: AbortSignal): Promise<PollResult>
       const htmlUrls = siteUrl ? await discoverIconUrls(siteUrl, signal) : [];
       const feedUrls = extractFeedIconUrls(parsed, siteUrl || feed.url);
       signal.throwIfAborted();
-      await refreshFeedIcon(feed.id, siteUrl, [...htmlUrls, ...feedUrls], signal);
+      await refreshFeedIcon(feed.id, siteUrl, [...htmlUrls, ...feedUrls.icons], signal, feedUrls.logos);
     }
   } catch { /* Keep the successful poll; icon failures are best effort. */ }
   return { newItems, error: null };
