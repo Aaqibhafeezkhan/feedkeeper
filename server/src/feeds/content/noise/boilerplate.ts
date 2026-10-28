@@ -23,6 +23,23 @@ function followingNameList(block: Element): Element | null {
   return items.length > 0 && items.every(item => flat(item.textContent).length <= LIST_ITEM_LIMIT) ? next : null;
 }
 
+/** Elements that start a line of their own; a run of text between two `<br>` that holds one of them is not a plain line. */
+const LINE_BREAKING = `${NESTED}, img, picture, video, audio, iframe, table, blockquote, figure`;
+
+/** The text nodes and inline elements of a container, cut at every `<br>`. */
+function linesOf(container: ParentNode): Node[][] {
+  const lines: Node[][] = [[]];
+  container.childNodes.forEach(node => {
+    if (node.nodeName === "BR") lines.push([]);
+    else lines[lines.length - 1]!.push(node);
+  });
+  return lines;
+}
+
+function isPlainLine(nodes: Node[]): boolean {
+  return nodes.every(node => node.nodeType === 3 || (node.nodeType === 1 && !(node as Element).matches(LINE_BREAKING) && !(node as Element).querySelector(LINE_BREAKING)));
+}
+
 /**
  * Lines that sites add to their own text: "Follow us on Google", the words of a download button, the file name of a picture shown as text,
  * "This article first appeared on …", the related links under a MacRumors story. A block goes when its whole text is one of these lines
@@ -48,6 +65,36 @@ export const boilerplate: ContentRule = {
       count(stats, "boilerplate");
       changed = true;
     }
-    return changed;
+    return lineFooters(root, stats, total) || changed;
   },
 };
+
+/**
+ * Footers that stand as bare text between `<br>` ("This article … first appeared on …", "Discuss this article in our forums"), not in a block of
+ * their own. Each such line is checked like a block; the breaks left at the end of the container go with them.
+ */
+function lineFooters(root: ContentRoot, stats: Record<string, number>, total: number): boolean {
+  let changed = false;
+  const containers: ParentNode[] = [root, ...root.querySelectorAll("div, p, li, td, section, article, main, blockquote")];
+  for (const container of containers) {
+    if (![...container.childNodes].some(node => node.nodeName === "BR")) continue;
+    let removed = false;
+    for (const line of linesOf(container)) {
+      if (line.length === 0 || !isPlainLine(line)) continue;
+      const text = flat(line.map(node => node.textContent ?? "").join(""));
+      if (text === "" || text.length > 400) continue;
+      const anywhere = BOILERPLATE_ANYWHERE.some(pattern => pattern.test(text));
+      const trailing = !anywhere && total > 0 && textBefore(root, line[0]!) / total >= AFTER_SHARE && BOILERPLATE_TRAILING.some(pattern => pattern.test(text));
+      if (!anywhere && !trailing) continue;
+      const after = line[line.length - 1]!.nextSibling;
+      line.forEach(node => node.parentNode?.removeChild(node));
+      if (after?.nodeName === "BR") after.parentNode?.removeChild(after);
+      count(stats, "boilerplate");
+      removed = true;
+    }
+    if (!removed) continue;
+    while (container.lastChild && (container.lastChild.nodeName === "BR" || (container.lastChild.nodeType === 3 && flat(container.lastChild.textContent) === ""))) container.removeChild(container.lastChild);
+    changed = true;
+  }
+  return changed;
+}
