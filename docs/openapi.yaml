@@ -946,6 +946,9 @@ components:
         isEmptyGallery:
           type: boolean
           description: "Shared publisher classification advertised by item.empty-gallery. Gallery path and only empty/read-more text; no minimum article length. Ordinary lists/search omit these items unless saved or annotated by the caller. Direct reads and sync remain available."
+        isVideo:
+          type: boolean
+          description: "Present and true when the entry is only a poster that links to a video page: the content holds a marked video link (`data-media=\"video\"`) and nothing to read, so `status` is `feed_only` and a client can say \"Video\" under an empty preview."
     Item:
       type: object
       properties:

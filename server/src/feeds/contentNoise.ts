@@ -2,6 +2,7 @@ import { JSDOM } from "jsdom";
 import { CONSENT_ANCHORS, CONSENT_COMPANIONS } from "./content/patterns/consent/index.js";
 import { resolveEmbeds } from "./content/embeds/index.js";
 import { teaserLinks } from "./content/noise/teaserLinks.js";
+import { markVideoTeasers } from "./content/noise/videoTeasers.js";
 import { type NoiseStats, flat, pruneEmpty } from "./content/shared.js";
 
 export type { NoiseStats };
@@ -184,7 +185,8 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
         if (!root.contains(block)) continue;
       }
     }
-    if (headline && normalized(text) === headline && (position < 4 || (heading && position < 14))) { drop(block, "title-repeat"); continue; }
+    // A block that holds a picture is more than the repeated headline: the picture stays.
+    if (headline && normalized(text) === headline && (position < 4 || (heading && position < 14)) && !block.querySelector("img, picture, video")) { drop(block, "title-repeat"); continue; }
     if (position < 14 && /^(Audiobeitrag|Videobeitrag)\s*>/.test(text) && headline && normalized(text).endsWith(headline)) { drop(block, "title-repeat"); continue; }
     if (/^[>›»|/·•–—-]+$/.test(text)) { drop(block, "separator"); continue; }
     if (/^(Audiobeitrag|Videobeitrag|Autoplay)$/i.test(text) || (position < 8 && /^Bild$/.test(text))) { drop(block, "player"); continue; }
@@ -258,6 +260,8 @@ function removeReaderNoise(root: DocumentFragment, title: string | null | undefi
       if (CONSENT_ANCHORS.some(pattern => pattern.test(text)) || CONSENT_COMPANIONS.some(pattern => pattern.test(text))) drop(next, "consent-placeholder");
     }
   });
+  // Last, so that nothing above takes the card for a repeated headline.
+  if (markVideoTeasers(root, title, stats)) changed = true;
   return changed;
 }
 

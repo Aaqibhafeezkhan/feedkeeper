@@ -1,4 +1,5 @@
 import { canAccessItem } from "../feeds/repository.js";
+import { isVideoTeaser } from "../feeds/content/noise/videoTeasers.js";
 import { db } from "../db/index.js";
 import {
   listFoldersForUser,
@@ -58,6 +59,8 @@ interface BatchItemContentRow {
   extraction_status: string;
   extraction_attempted_at: string | null;
   extraction_retry_at: string | null;
+  title: string | null;
+  short_html: string | null;
 }
 
 interface BatchNoteRow {
@@ -108,20 +111,25 @@ function loadItemContents(userId: number, itemIds: number[]): Map<number, Record
                    ELSE 'snippet' END AS source,
               i.extraction_status,
               i.extraction_attempted_at,
-              i.extraction_retry_at
+              i.extraction_retry_at,
+              i.title,
+              CASE WHEN i.full_content_html IS NULL AND length(i.content_html) <= 2000 THEN i.content_html END AS short_html
        FROM items i
        WHERE i.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))`,
     )
     .all(JSON.stringify(itemIds));
   for (const row of rows) {
     if (!canAccessItem(userId, row.id)) continue;
+    // A video's page has no text to fetch: its card is the whole content (see `contentMetadata`).
+    const isVideo = isVideoTeaser(row.short_html, row.title);
     result.set(row.id, {
       revision: row.content_revision,
       source: row.source,
-      status: row.extraction_status,
+      status: isVideo ? "feed_only" : row.extraction_status,
       attemptedAt: row.extraction_attempted_at,
-      retryAt: row.extraction_retry_at,
+      retryAt: isVideo ? null : row.extraction_retry_at,
       isEmptyGallery: Boolean(row.is_empty_gallery),
+      ...(isVideo ? { isVideo: true } : {}),
     });
   }
   return result;

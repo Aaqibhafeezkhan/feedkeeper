@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { JSDOM } from "jsdom";
 import type { Item } from "./repository.js";
 import { decodeEntities } from "./text.js";
+import { isVideoTeaser } from "./content/noise/videoTeasers.js";
 import { cleanReaderHtml, cleanSnippet, derivedText } from "./contentNoise.js";
 
 /**
@@ -36,8 +37,10 @@ export function readerHtml(html: string | null | undefined, title?: string | nul
 
 export function contentMetadata(item: Item) {
   const source = item.full_content_html ? "reader" : item.content_html ? "feed" : "snippet";
-  return { revision: item.content_revision, source, status: item.extraction_status,
-    attemptedAt: item.extraction_attempted_at, retryAt: item.extraction_retry_at, isEmptyGallery: Boolean(item.is_empty_gallery) };
+  // A video's page has no text to fetch: its card is the whole content, so no client says the article is missing.
+  const videoCard = !item.full_content_html && isVideoTeaser(item.content_html, item.title);
+  return { revision: item.content_revision, source, status: videoCard ? "feed_only" : item.extraction_status,
+    attemptedAt: item.extraction_attempted_at, retryAt: videoCard ? null : item.extraction_retry_at, isEmptyGallery: Boolean(item.is_empty_gallery), ...(videoCard ? { isVideo: true } : {}) };
 }
 
 export function sourceText(item: Item) {
