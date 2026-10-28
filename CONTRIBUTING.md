@@ -16,6 +16,10 @@ For security vulnerabilities, see [SECURITY.md](SECURITY.md) instead — please 
 
 Open an issue describing the use case, not just the feature. "I want to filter feeds by X because Y" is more useful than "add filtering."
 
+## Suggesting feeds for the starter lists
+
+People without feeds see lists of well-known sources by interest. A new feed, a feed that has gone quiet or a new topic is a small pull request against one file. What belongs in a list and how to write an entry is in [docs/feed-lists.md](docs/feed-lists.md).
+
 ## Development setup
 
 ```bash

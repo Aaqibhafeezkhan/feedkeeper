@@ -4,6 +4,13 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+- Feed lists by interest (news, technology, Apple, development, science, design, gaming, business, sport, culture; [how to suggest a feed](docs/feed-lists.md)) with a short description for every feed, in English, German and Japanese. The server serves them at `GET /api/v1/feed-lists` (feature `feed-lists`), so the native apps can offer them as a last step of setting up an empty account. Hosts that embed the server can replace them with `setFeedListsProvider`.
+- In the web app, feeds from several lists can be chosen and added together. Each list's feeds go into a folder with its name; "All languages" shows feeds in other languages too.
+
+### Changed
+- The built-in starter packs moved from the web bundle into one file on the server (`feedListsData.ts`). `extensions.starterPacks` keeps working, and its feeds may now carry a `description`.
+
 ## [0.33.0] - 2026-10-28
 
 ### Added

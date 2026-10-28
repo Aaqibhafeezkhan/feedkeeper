@@ -101,7 +101,7 @@ Started without a `SESSION_SECRET` (for example from one of the templates below)
 - **Notifications and home screen shortcuts** — optional push notifications for new articles of the feeds you choose (on iPhone and iPad once the app is on the home screen), the number of unread articles of the feeds you choose on the app icon, shortcuts to saved articles and to adding a feed, and sharing a web address from another app straight into the add-feed dialog. Notifications are encrypted end to end and delivered through your browser vendor's push service; the server creates its push keys on first start and keeps them in the database.
 - **Personal profiles** — each account can set its display name and a profile photo.
 - **Online backups** — create verified SQLite backups while the service keeps running.
-- **Guided onboarding & starter packs** — get started instantly with curated topic starter packs (News, Tech, Design, etc. with crisp vector icons), single website discovery, or OPML import when setting up an empty account.
+- **Guided onboarding & starter packs** — get started instantly with curated feed lists by interest (News, Technology, Apple, Development, Science, Design, Gaming, Business, Sport, Culture), each feed with a short description and feeds from several lists in one go, single website discovery, or OPML import when setting up an empty account. The lists are served to the native apps too (`GET /api/v1/feed-lists`).
 - **Passkeys with browser autofill & step-up reauthentication** — sign in effortlessly without a password via WebAuthn browser autofill directly from the email input field. Protect security-sensitive actions (passkey registration, 2FA setup, recovery codes) with modal biometric confirmation without typing a password. Optional TOTP two-factor authentication and one-time recovery codes on every installation; see [Account security](docs/account-security.md).
 - **Hardened security** — SSRF protection against internal network probing, rate limiting on authentication, and hashed API tokens.
 
@@ -327,7 +327,7 @@ Operators and products built on FeedKeeper can add settings sections, footer lin
 
 ## Contributing
 
-Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started. Improving or adding a language is a good first contribution, see [docs/translating.md](docs/translating.md). Notable changes are listed in the [changelog](CHANGELOG.md). This is a young project, so expect some rough edges.
+Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started. Improving or adding a language is a good first contribution, see [docs/translating.md](docs/translating.md). So is a better starter feed for the lists new users see, see [docs/feed-lists.md](docs/feed-lists.md). Notable changes are listed in the [changelog](CHANGELOG.md). This is a young project, so expect some rough edges.
 
 ## License
 

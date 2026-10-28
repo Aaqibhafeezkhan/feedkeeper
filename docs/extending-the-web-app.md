@@ -100,7 +100,7 @@ The account page shows a card to change the password. A host that signs people i
 
 ## Starter packs and welcome content
 
-A person without feeds sees a welcome card: add a website by its address, pick a starter pack or import a subscription file. The app brings a few packs (news, technology, Apple, science, design). A host can add its own, replace the list, and put its own content above the first steps.
+A person without feeds sees a welcome card: add a website by its address, pick feeds from the lists or import a subscription file. The server brings the lists (`GET /api/v1/feed-lists`: news, technology, Apple, development, science, design, gaming, business, sport and culture, each feed with a short description). Feeds can be ticked across lists. A host can add its own packs, replace the list, and put its own content above the first steps.
 
 ```js
 extensions.starterPacks = {
@@ -120,7 +120,7 @@ extensions.onboarding = {
 ```
 
 - A pack with the id of a built-in one replaces it. Feeds are shown in the language of the app first, then English; a feed without `lang` is always shown. Only `http(s)` addresses without credentials are accepted, at most 12 packs of 20 feeds.
-- A pack subscribes its feeds into a folder with the pack's name.
+- Subscribing puts the chosen feeds into a folder named after their pack. A feed may carry a `description` (a string or one per language), which is shown under its name.
 
 ## Notice above the articles
 
