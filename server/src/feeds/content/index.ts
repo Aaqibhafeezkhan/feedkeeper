@@ -1,4 +1,5 @@
 import { EMBED_RULES, resolveEmbeds } from "./embeds/index.js";
+import { boilerplate } from "./noise/boilerplate.js";
 import { loadingPlaceholders } from "./noise/loading.js";
 import { sidebars } from "./noise/sidebars.js";
 import type { ContentRoot, ContentRule, NoiseStats } from "./shared.js";
@@ -8,7 +9,7 @@ import type { ContentRoot, ContentRule, NoiseStats } from "./shared.js";
  * tags that are removed next), then the clutter around the story. The tests check each rule against its fixtures in
  * `test/fixtures/content/<rule name>` and that running it twice changes nothing. See `docs/content-rules.md`.
  */
-export const PAGE_RULES: readonly ContentRule[] = [...EMBED_RULES, sidebars, loadingPlaceholders];
+export const PAGE_RULES: readonly ContentRule[] = [...EMBED_RULES, sidebars, loadingPlaceholders, boilerplate];
 
 export { resolveEmbeds };
 

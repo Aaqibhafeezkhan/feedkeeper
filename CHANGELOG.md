@@ -6,6 +6,7 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 
 ### Fixed
 - A block that holds only a loading label ("wird geladen …", "Loading…") no longer stays in the text; the new content rule `loading-placeholders` removes it. A site's welcome heading ("Willkommen bei …", "Welcome to …") followed by links at the end of the text is treated like a list of other articles.
+- The new content rule `boilerplate` removes blocks that hold only a site's own line: a call to follow the site on Google, the text of an App Store or Google Play button, the file name of a picture shown as text, "This article first appeared on …" and "Discuss this article" footers, the related links under a MacRumors story and The Verge's "Follow topics and authors" box with its list of names.
 - Podcast and video articles whose feed carries a native `<audio>` or `<video>` element no longer show a player that cannot play (a bar saying "Error"). The new content rule `media-elements` turns such an element into one marked link to its file (`data-media="audio"` or `"video"`), or removes it when it names no address.
 
 ## [0.32.0] - 2026-10-27

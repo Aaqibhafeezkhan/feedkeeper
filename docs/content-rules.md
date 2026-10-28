@@ -42,6 +42,7 @@ Most contributions are a pattern in one of the files under `patterns/`:
 - A social platform or audio player: `patterns/social-platforms.ts` (host, path of a single post, kind).
 - A heading or markup that introduces a list of other articles: `patterns/sidebars/`.
 - The label of a play-button picture: `patterns/play-labels/`.
+- A line a site puts into its own text ("Follow us on Google", the words of a download button, "first appeared on", related links under a story): `patterns/boilerplate/`. `ANYWHERE` holds lines that are noise wherever they stand, `TRAILING` footers that count only in the second half of the text. A block goes only when its whole text is one of these lines.
 - The label of a block that a script fills, such as "wird geladen …" or "Loading…": `patterns/loading/`.
 
 To support a new language, add a file next to the existing ones and list it in the folder's `index.ts`. Every language
