@@ -5,6 +5,7 @@ All notable changes to FeedKeeper are documented here. The format follows [Keep 
 ## [Unreleased]
 
 ## [0.35.0] - 2026-10-28
+
 ### Fixed
 - A feed with one empty `<guid/>` element (NASA) could not be saved at all: the element is read as an object, which the database refused, so the whole feed failed. Such an item is now identified by its link or title.
 
